@@ -1,0 +1,24 @@
+{
+  "name": "@matcha-puff/tool-settings",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "抹茶泡芙 · 工具设置与本地持久化（JSON / Store，不使用 SQL）",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@matcha-puff/tool-contracts": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

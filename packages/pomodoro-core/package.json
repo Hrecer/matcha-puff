@@ -1,0 +1,21 @@
+{
+  "name": "@matcha-puff/pomodoro-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "抹茶泡芙 · 专注模式的领域逻辑（纯函数，无 IO）",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4"
+  }
+}

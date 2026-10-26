@@ -1,0 +1,50 @@
+/**
+ * 播放中律动条（PlayingBars）
+ *
+ * 代替原来的「呼吸小圆点」表示声音正在播放：三条长短错落的圆头短柱
+ * 依次起伏，像轻扫过的均衡器；整组再叠一层 2.4s 的透明度呼吸
+ * （与 MatchaSign 的 ms-breathe 同一节奏），把旧圆点的「呼吸感」接过来。
+ *
+ * 颜色不写死：柱子用 bg-current，由使用处通过 text-primary 等着色给出，
+ * 将来放进深色按钮里也能直接继承。
+ */
+
+/* 单根柱子：从基线向上起伏；负延迟让三根柱起手就错开，不等第一个周期 */
+.playing-bars-bar {
+  transform-origin: bottom;
+  animation: playing-bars-bounce 1.1s ease-in-out infinite;
+  animation-delay: calc(var(--pb-i, 0) * -0.18s);
+}
+
+/* 整组呼吸：透明度轻喘，延续旧圆点的 pulse 语义 */
+.playing-bars-breathe {
+  animation: playing-bars-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes playing-bars-bounce {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes playing-bars-breathe {
+  0%,
+  100% {
+    opacity: 0.68;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 减少动态：停掉全部动画，柱子按各自静态高度组成一枚小波形符号，仍然认得出「在响」 */
+@media (prefers-reduced-motion: reduce) {
+  .playing-bars-bar,
+  .playing-bars-breathe {
+    animation: none;
+  }
+}

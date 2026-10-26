@@ -1,0 +1,11 @@
+packages:
+  - "desktop"
+  - "packages/*"
+
+# esbuild 的安装脚本必须执行（vite / vitest 依赖它的原生二进制）
+allowBuilds:
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - cn@0.5.0
+  - lucide-react@1.58.0

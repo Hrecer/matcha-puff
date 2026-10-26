@@ -1,0 +1,1030 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  
+  --radius: 0.75rem;
+
+  
+
+
+  --background: #dbe8c9;
+  --foreground: #1c2416;
+
+  --card: #e9f1dc;
+  --card-foreground: #1c2416;
+  /** 实色层次：面板（容器）是中等抹茶，卡片在它上面提亮一档，但仍然是绿调，不回到白 */
+  /** 实色层次：面板直接跟侧栏同一支淡抹茶，卡面上的条目再提亮一档 */
+  --card-surface: #e6f0d2;
+  --card-edge: #b6c993;
+  /** 侧栏与列表面板共用的底色：一支淡抹茶 */
+  --sidebar-surface: #dceac4;
+  --popover: #ebf2df;
+  --popover-foreground: #1c2416;
+
+  /* 品牌强调：深抹茶绿。全 UI 唯一强调色，正文场景用 -foreground 保证对比度 */
+  --primary: #31532a;
+  --primary-foreground: #f6f9ef;
+
+  --secondary: #d0dfb9;
+  --secondary-foreground: #1c2416;
+  --muted: #cfe0b7;
+  /* 7.3:1 on --background、8.0:1 on 卡片：次要文字也保持高对比 */
+  --muted-foreground: #424c36;
+  --accent: #c4d7a7;
+  --accent-foreground: #26381d;
+
+  /* 语义色：克制，正文变体保证 ≥4.5:1 */
+  --destructive: #a8433a;
+  --destructive-foreground: #fdf6f4;
+  --warning: #8f6a26;
+  --warning-foreground: #fbf7ee;
+  --success: #3b6f48;
+  --success-foreground: #f4faf5;
+
+  --border: oklch(0.3 0.03 135 / 0.16);
+  --input: oklch(0.3 0.03 135 / 0.20);
+  --ring: #31532a;
+
+  --sidebar: #cddab9;
+  --sidebar-foreground: #1c2416;
+  /* 7.6:1 on 选中胶囊（#bdd29e）：选中文字在深一档抹茶块上仍清晰 */
+  --sidebar-primary: #233a1b;
+  --sidebar-primary-foreground: #f6f9ef;
+  --sidebar-accent: #bdd29e;
+  --sidebar-accent-foreground: #26381d;
+  --sidebar-border: oklch(0.3 0.03 135 / 0.15);
+  --sidebar-ring: #31532a;
+
+  /* ── 玻璃材质令牌（毛玻璃）────────────────────────────────────── */
+  --glass-tint: #f6faee;          /* 奶玻璃着色：暖奶绿，不再用纯白 */
+  --glass-alpha: 0.48;            /* 奶感更实，但仍能看见底色与波点 */
+  --glass-blur: 12px;             /* 柔化波点与色斑，避免文字背后出现高频噪声 */
+  --frosted-inner: oklch(0.2 0 0 / 0.20); /* 内侧暗倒角（玻璃厚度） */
+  --glass-line: oklch(0.3 0.03 135 / 0.18);
+  --glass-shadow: 0 10px 24px -10px oklch(0.22 0.04 135 / 0.16);
+
+  /* 窗口外框：绿色描边 + 叠层阴影。
+     阴影画在透明子窗的内留白里，叠窗时能压在下一层窗口上。 */
+  --window-edge: oklch(0.46 0.085 132 / 0.68);
+  --window-edge-glow: oklch(0.46 0.085 132 / 0.14);
+  --window-shadow: 0 6px 16px -4px oklch(0.24 0.035 135 / 0.42),
+    0 2px 6px oklch(0.24 0.035 135 / 0.20);
+  --window-shadow-room: 16px;
+  /* 毛玻璃沿光向的渐变描边（FrostedRimPainter 四站）：浅底上保留轮廓但不发白 */
+  --rim-a: oklch(1 0 0 / 0.55);
+  --rim-b: oklch(1 0 0 / 0.04);
+  --rim-c: oklch(0.32 0.03 135 / 0.18);
+  --rim-d: oklch(1 0 0 / 0.20);
+
+  /* 全站唯一玻璃配方：材质/滤镜只在这里定义一次，.glass/.glass-frosted/.glass-union 共用 */
+  --glass-fill: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--glass-tint) calc(var(--glass-alpha) * 100%), transparent),
+    color-mix(in srgb, var(--glass-tint) calc(var(--glass-alpha) * 48%), transparent)
+  );
+  /* 不再叠加 contrast：它会把玻璃背后的波点与色斑锐化，文字上方显得刺、乱 */
+  --glass-filter: blur(var(--glass-blur)) saturate(1.05);
+  /* 工具页专用：奶感更实，用于玻璃上再叠一层玻璃（搜索框等），但不做成白面 */
+  --glass-fill-strong: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--glass-tint) 32%, transparent),
+    color-mix(in srgb, var(--glass-tint) 13%, transparent)
+  );
+  --glass-filter-strong: blur(12px) saturate(1.03);
+
+  /* 叠加层毛玻璃（工具页吸顶头 / 分类条）。
+     算法不动（goo 掩码 + backdrop-filter），只把效果调通透：
+     奶底 12%→5%，模糊 12px；能糊掉底层，又不发白、不发亮。 */
+  --glass-union-fill: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--glass-tint) 12%, transparent),
+    color-mix(in srgb, var(--glass-tint) 5%, transparent)
+  );
+  --glass-union-blur: 12px;
+  --glass-union-filter: blur(var(--glass-union-blur)) saturate(1.03);
+  /* 吸顶卡外轮廓：深抹茶细边，勾出搜索卡与分类条合体后的整条边 */
+  --glass-rim: oklch(0.3 0.04 135 / 0.38);
+
+  /* 托盘菜单实底（不再透明，避免桌面/主窗颜色穿上来） */
+  --tray-fill: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--background) 84%, var(--accent)),
+    color-mix(in srgb, var(--accent) 64%, var(--background))
+  );
+
+  /* 透明窗不再画外阴影：外圈会落进窗口表面的透明四角形成灰膜（见 .window-shell） */
+
+  /* ── 环境光画布令牌（AmbientPainter）───────────────────────────── */
+  --ambient-1: #94b77a;           /* 抹茶奶绿 */
+  --ambient-2: #7fa58f;           /* 青竹绿 */
+  --ambient-3: #c9b98d;           /* 燕麦奶 */
+  --ambient-alpha: 0.18;          /* 浅底上只留一层很薄的光，不铺高亮绿雾 */
+
+  /* 波点肌理（polka dot / 网点纸）：等大软边圆点，斜菱形错排铺满 */
+  --dot: oklch(0.38 0.03 130 / 0.06);
+
+  /* ── 间距尺度：4px 基准 ────────────────────────────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* ── 阴影：同层级必须同阴影，禁止随手写 box-shadow ──────────────── */
+  --shadow-sm: 0 1px 2px oklch(0.3 0.02 140 / 0.06);
+  --shadow-md: 0 2px 4px oklch(0.3 0.02 140 / 0.06), 0 1px 2px oklch(0.3 0.02 140 / 0.05);
+  --shadow-lg: 0 8px 24px oklch(0.3 0.02 140 / 0.10), 0 2px 6px oklch(0.3 0.02 140 / 0.06);
+
+  
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 260ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  /**
+   * 衬线体：给日历的「编辑体」排版用（大号月份 / 年份、卡片里的小标题旁的日期）。
+   * 拉丁部分优先系统里最好看的那几支，中文落到宋体 —— 两者都是衬线，接得比较顺。
+   * 只用在「展示性」的大字上，正文和数字一律还是无衬线 + 等宽，避免整屏发软。
+   */
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', 'Songti SC', 'Noto Serif SC',
+    'Source Han Serif SC', 'SimSun', Georgia, serif;
+}
+
+
+
+/* 把令牌暴露成 Tailwind 颜色/圆角工具类 */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  
+  --radius-panel: 1.25rem;
+  --radius-glass: 1.625rem;
+
+  /* 语义色的背景变体 */
+  --color-destructive-bg: color-mix(in oklch, var(--destructive) 11%, transparent);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-bg: color-mix(in oklch, var(--warning) 14%, transparent);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-bg: color-mix(in oklch, var(--success) 13%, transparent);
+
+  --shadow-e1: var(--shadow-sm);
+  --shadow-e2: var(--shadow-md);
+  --shadow-e3: var(--shadow-lg);
+
+  --ease-out-soft: var(--ease-out);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+}
+
+/* ══════════════════════════════════════════════════════════════════ *
+ * 材质层（@layer components：Tailwind 工具类可随时覆盖）              *
+ * ══════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  
+
+
+
+
+
+
+
+  /**
+   * 不透明卡片：圆角、投影跟玻璃卡一致，但没有毛玻璃。
+   * 底色跟侧栏同一支淡抹茶，卡面上的条目用更亮一档的 --card-surface + 描边区分。
+   */
+  .card-solid {
+    position: relative;
+    border-radius: var(--radius-panel);
+    background: var(--sidebar-surface);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glass,
+  .glass-frosted {
+    position: relative;
+    isolation: isolate;
+    border-radius: var(--radius-panel);
+    background: var(--glass-fill);
+    /* 只写标准属性：生产构建会把它误判为重复项，和 -webkit- 同写时只留下前缀版 */
+    backdrop-filter: var(--glass-filter);
+    /* 与吸顶玻璃同一圈 2px 深抹茶描边；画在内侧，不会溢出卡片 */
+    box-shadow: var(--glass-shadow);
+  }
+
+  /**
+   * 玻璃叠层（导航/分段条的选中指示器）
+   *   同一套标准，只是着色更实、模糊更强，用来在玻璃上再叠一层玻璃；
+   *   仅保留极轻外投影与背景区分，同样没有边线。
+   */
+  .glass-layer {
+    background: var(--glass-fill-strong);
+    backdrop-filter: var(--glass-filter-strong);
+    box-shadow: 0 2px 8px oklch(0.2 0.02 140 / 0.1);
+  }
+
+  /**
+   * 选中块（侧栏导航 / 横向子项共用的唯一选中样式）
+   *   不透明干净白：不再让底下的抹茶绿透上来（那正是右侧选中块发绿灰的原因）。
+   *   圆角由使用处的 rounded-md 决定，两侧完全一致。
+   */
+  .glass-select {
+    /* 选中胶囊：比底纸深一档的抹茶绿，不投影——投影会在圆角外扩成方形暗边；
+       用反向明度做选中，不再出现刺眼的白色发光块 */
+    background: linear-gradient(180deg, #c0d4a2, #b7cc97);
+  }
+
+  /**
+   * 毛玻璃曲面（工具页吸顶头 + 分类条共用的一层材质）
+   *   轮廓由 SVG goo 掩码给出（见 frosted-glass.tsx）。
+   *   白底压到 10%→4%、模糊 8px：只把底下滚上来的内容糊掉，
+   *   玻璃本身保持通透，不发白也不发亮。
+   */
+  .glass-union {
+    position: relative;
+    isolation: isolate;
+    border-radius: var(--radius-panel);
+    background: var(--glass-union-fill);
+    backdrop-filter: var(--glass-union-filter);
+    box-shadow: var(--glass-shadow);
+  }
+
+  /* 悬浮卡：大圆角玻璃矩形，内描边四边等宽 */
+  .tools-float-card {
+    isolation: isolate;
+    border-radius: 36px;
+    background: var(--glass-union-fill);
+    backdrop-filter: var(--glass-union-filter);
+    box-shadow: var(--glass-shadow), inset 0 0 0 2px var(--glass-rim);
+  }
+
+  /* 拼合期间由 goo 浮层统一绘制玻璃与描边，静态卡暂时让位 */
+  .tools-float-card.is-merging {
+    background: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  /* 分类条：原生滚动的玻璃药丸，描边用内阴影，滚动过程中不重算任何几何 */
+  .tools-strip-card {
+    position: relative;
+    border-radius: 9999px;
+    background: var(--glass-union-fill);
+    backdrop-filter: var(--glass-union-filter);
+    box-shadow: var(--glass-shadow), inset 0 0 0 2px var(--glass-rim);
+  }
+
+  /**
+   * 吸顶行描边：直接画在两条真实 sticky 行上，随内容同帧移动，不经过 goo 浮层。
+   * 头部与停靠的分类条相接时，去掉内侧两条边、抹平接缝两角，仍然是一张卡的外轮廓。
+   */
+  /* 吸顶玻璃的描边由 FrostedGlassUnion 的 goo 内蚀刻环负责，外轮廓保持不变 */
+
+  /* 托盘菜单：实底淡绿，不参与玻璃透视 */
+  .tray-panel {
+    background: var(--tray-fill);
+    border-radius: 12px;
+  }
+
+  /* 不画描边：方向渐变描边只会亮一边（单边白边），玻璃厚度感由材质自身承担 */
+
+  /* 工具页顶部悬浮分类卡：随滚动切换分类时淡入下滑，避免硬切 */
+  .cat-card-in {
+    animation: cat-card-in 240ms var(--ease-out) both;
+  }
+
+  /* 毛玻璃的顶部内高光（deflate(2) 白 .17 → 透明），
+     深色底上压到 .08，保留融合高光但不刺眼 */
+  .glass-frosted::after {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    border-radius: inherit;
+    background: linear-gradient(180deg, oklch(1 0 0 / 0.08), transparent 32%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  
+
+
+
+
+
+
+
+
+
+  .window-shell {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    border-radius: var(--radius-glass);
+    background: var(--background);
+    /* 真边框贴最外缘：外面不再漏出一圈底色；2px 与卡片描边同宽 */
+    border: 2px solid var(--window-edge);
+  }
+
+  .window-shell.is-maximized {
+    border-radius: 0;
+  }
+
+  /**
+   * 工具子窗浮台
+   *
+   * 子窗是 transparent 窗口，外阴影必须画在窗体内部的透明留白里，
+   * 否则会被视口裁掉（画到圆角外又会形成灰膜）。
+   * 留白 14px 由 Rust 建窗时在原尺寸上等量补偿，界面可用面积不变。
+   */
+  .window-stage {
+    height: 100%;
+    padding: var(--window-shadow-room);
+  }
+
+  .window-stage .window-shell {
+    box-shadow: var(--window-shadow);
+  }
+
+  .window-stage.is-maximized {
+    padding: 0;
+  }
+
+  .window-stage.is-maximized .window-shell {
+    box-shadow: none;
+  }
+
+  /**
+   * 桌面专注挂件卡片
+   *
+   * 边框与阴影直接复用插件窗口的同一组令牌（--window-edge / --window-shadow），
+   * 只有形状不同：这里是一枚胶囊。外阴影同样画在窗体内部的透明留白里，
+   * 留白宽度与 .window-stage 一致（--window-shadow-room）。
+   */
+  .widget-shell {
+    background: var(--background);
+    border: 2px solid var(--window-edge);
+    border-radius: 9999px;
+    box-shadow: var(--window-shadow);
+  }
+
+  
+
+
+
+
+
+
+  .caption {
+    /* 彻底沉浸：标题栏与页面底色一致，仅保留原来的高度与拖拽区 */
+    background: transparent;
+    border-bottom: 0;
+  }
+
+  /* 自绘窗口按钮：46px 宽、通高、悬停灰底；关闭不再用红底（红底圆角会透出绿边） */
+  .cap-btn {
+    display: flex;
+    width: 46px;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-foreground);
+    outline: none;
+    transition:
+      background-color 150ms var(--ease-out),
+      color 150ms var(--ease-out);
+  }
+
+  .cap-btn:hover {
+    background: color-mix(in oklch, var(--foreground) 9%, transparent);
+    color: var(--foreground);
+  }
+
+  .cap-btn:active {
+    background: color-mix(in oklch, var(--foreground) 14%, transparent);
+  }
+
+  /**
+   * 环境光画布（AmbientPainter）
+   *   铺在窗口外壳内层（absolute，随圆角裁剪）：底色 + 3 个径向色斑 + accent 细曲线。
+   *   放在 absolute inset-0 z-0，内容层 relative z-10。深色自动收敛透明度。
+   */
+  .ambient {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: var(--background);
+    pointer-events: none;
+  }
+
+  /* 静态环境光：只画一次。之前的无限漂移动画会让整窗 backdrop-filter
+     每帧重算，空闲时 WebView2 GPU 进程也持续吃 15%+ 显卡。 */
+  .ambient-glow {
+    position: absolute;
+    border-radius: 9999px;
+  }
+
+  .ambient-glow-1 {
+    top: -18%;
+    left: 31%;
+    width: 58vw;
+    height: 58vw;
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--ambient-1) calc(var(--ambient-alpha) * 100%), transparent) 0%,
+      transparent 68%
+    );
+  }
+
+  .ambient-glow-2 {
+    right: -12%;
+    bottom: -22%;
+    width: 48vw;
+    height: 48vw;
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--ambient-2) calc(var(--ambient-alpha) * 100%), transparent) 0%,
+      transparent 68%
+    );
+  }
+
+  .ambient-glow-3 {
+    bottom: -24%;
+    left: 12%;
+    width: 48vw;
+    height: 48vw;
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--ambient-3) calc(var(--ambient-alpha) * 100%), transparent) 0%,
+      transparent 68%
+    );
+  }
+
+  /* 波点层：等大圆点、斜菱形错排、整体轻微倾斜，铺满窗口且不碍眼 */
+  .ambient-dots {
+    position: absolute;
+    inset: -15%;
+    pointer-events: none;
+    transform: rotate(-8deg);
+    background-image:
+      radial-gradient(circle, var(--dot) 0 4.6px, transparent 6px),
+      radial-gradient(circle, var(--dot) 0 4.6px, transparent 6px);
+    background-size:
+      88px 88px,
+      88px 88px;
+    background-position:
+      0 0,
+      44px 44px;
+  }
+
+  /* 细滚动条：玻璃界面里默认滚动条太笨重 */
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 20%, transparent) transparent;
+  }
+
+  .scroll-thin::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--foreground) 18%, transparent);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  .scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /**
+   * Markdown 转换器的 HTML 预览
+   *   marked 产出的裸标签在 Tailwind preflight 下没有排版；
+   *   这里只给预览容器补回基础层级与间距，颜色全部走令牌。
+   */
+  .markdown-preview {
+    color: var(--foreground);
+    font-size: 13px;
+    line-height: 1.72;
+    word-break: break-word;
+  }
+
+  .markdown-preview > :first-child {
+    margin-top: 0;
+  }
+
+  .markdown-preview > :last-child {
+    margin-bottom: 0;
+  }
+
+  .markdown-preview h1,
+  .markdown-preview h2,
+  .markdown-preview h3,
+  .markdown-preview h4,
+  .markdown-preview h5,
+  .markdown-preview h6 {
+    margin: 1.1em 0 0.45em;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--foreground);
+  }
+
+  .markdown-preview h1 { font-size: 1.65em; }
+  .markdown-preview h2 { font-size: 1.35em; }
+  .markdown-preview h3 { font-size: 1.15em; }
+  .markdown-preview h4,
+  .markdown-preview h5,
+  .markdown-preview h6 { font-size: 1em; }
+
+  .markdown-preview p {
+    margin: 0.6em 0;
+  }
+
+  .markdown-preview ul,
+  .markdown-preview ol {
+    margin: 0.6em 0;
+    padding-left: 1.45em;
+  }
+
+  .markdown-preview ul { list-style: disc; }
+  .markdown-preview ol { list-style: decimal; }
+
+  .markdown-preview li {
+    margin: 0.2em 0;
+  }
+
+  .markdown-preview blockquote {
+    margin: 0.7em 0;
+    border-left: 3px solid var(--border);
+    padding-left: 0.85em;
+    color: var(--muted-foreground);
+  }
+
+  .markdown-preview code {
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--foreground) 6%, transparent);
+    padding: 0.12em 0.36em;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+
+  .markdown-preview pre {
+    margin: 0.7em 0;
+    overflow: auto;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--foreground) 5%, transparent);
+    padding: 0.75em 0.85em;
+  }
+
+  .markdown-preview pre code {
+    background: transparent;
+    padding: 0;
+  }
+
+  .markdown-preview a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .markdown-preview table {
+    width: 100%;
+    margin: 0.7em 0;
+    border-collapse: collapse;
+  }
+
+  .markdown-preview th,
+  .markdown-preview td {
+    border: 1px solid var(--border);
+    padding: 0.35em 0.55em;
+    text-align: left;
+  }
+
+  .markdown-preview th {
+    background: color-mix(in srgb, var(--foreground) 4%, transparent);
+    font-weight: 600;
+  }
+
+  .markdown-preview hr {
+    margin: 1em 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .markdown-preview img {
+    max-width: 100%;
+    border-radius: 6px;
+  }
+
+  .markdown-preview input[type='checkbox'] {
+    margin-right: 0.35em;
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  
+
+  html {
+    background: transparent;
+  }
+
+  body {
+    
+
+
+    background-color: transparent;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    text-rendering: optimizeLegibility;
+    overflow: hidden; /* 桌面外壳：滚动发生在内部视口，不在窗口 */
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 26%, transparent);
+  }
+
+  /* 键盘焦点环：全 UI 统一 */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* 原生 number 输入框的上下箭头是 WebView2 画的白色小块，样式改不了。
+     全站一律隐藏：需要步进的场合用自绘的 NumberField，
+     剩下几处确实不适合步进的（宽值域/内联编辑）至少保证只剩干净输入框。
+     必须待在 @layer base 里：无图层规则的优先级会盖掉工具类。 */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+}
+
+
+
+
+
+
+
+
+@layer utilities {
+  .text-\[9px\] { font-size: 11px !important; }
+  .text-\[9\.5px\] { font-size: 11.5px !important; }
+  .text-\[10px\] { font-size: 12px !important; }
+  .text-\[10\.5px\] { font-size: 12.5px !important; }
+  .text-\[11px\] { font-size: 13px !important; }
+  .text-\[11\.5px\] { font-size: 13.5px !important; }
+  .text-\[12px\] { font-size: 14px !important; }
+  .text-\[12\.5px\] { font-size: 14.5px !important; }
+  .text-\[13px\] { font-size: 15px !important; }
+  .text-\[13\.5px\] { font-size: 15.5px !important; }
+  .text-\[14px\] { font-size: 16px !important; }
+  .text-\[14\.5px\] { font-size: 16.5px !important; }
+  .text-\[15px\] { font-size: 17px !important; }
+  .text-\[15\.5px\] { font-size: 17.5px !important; }
+  .text-\[16px\] { font-size: 18px !important; }
+  .text-\[17px\] { font-size: 19px !important; }
+  .text-\[18px\] { font-size: 20px !important; }
+  .text-\[19px\] { font-size: 21px !important; }
+  .text-\[20px\] { font-size: 22px !important; }
+  .text-\[21px\] { font-size: 23px !important; }
+  .text-\[22px\] { font-size: 24px !important; }
+  .text-\[24px\] { font-size: 26px !important; }
+  .text-\[26px\] { font-size: 28px !important; }
+  .text-\[30px\] { font-size: 32px !important; }
+  .text-\[34px\] { font-size: 36px !important; }
+  .text-\[38px\] { font-size: 40px !important; }
+  .text-\[40px\] { font-size: 42px !important; }
+  .text-\[42px\] { font-size: 44px !important; }
+  .text-\[44px\] { font-size: 46px !important; }
+  .text-\[52px\] { font-size: 54px !important; }
+  .text-\[64px\] { font-size: 66px !important; }
+  .text-\[76px\] { font-size: 78px !important; }
+
+  .text-xs { font-size: 14px !important; }
+  .text-sm { font-size: 16px !important; }
+  .text-base { font-size: 18px !important; }
+  .text-lg { font-size: 20px !important; }
+  .text-xl { font-size: 22px !important; }
+  .text-2xl { font-size: 26px !important; }
+  .text-3xl { font-size: 32px !important; }
+
+  /**
+   * 任务树把手：顶层任务设置了手动色时，圆角矩形铺一层该颜色的浅底。
+   * 子任务没有自己的颜色，由行渲染时继承所属顶层任务的色值（同一个变量）。
+   * 透明度刻意压低：它只是「这棵树的色标」，不能抢过卡片本身。
+   */
+  .task-handle-tinted {
+    background-color: color-mix(in srgb, var(--task-color) 50%, transparent);
+  }
+
+  .task-handle-tinted:hover {
+    background-color: color-mix(in srgb, var(--task-color) 62%, transparent);
+  }
+}
+
+/**
+ * 弹窗材质：做成「窗口里的小窗口」，与主窗 / 工具子窗同一张背景。
+ *
+ * 必须写在 @layer components 里：无图层规则的优先级高于任何 @layer 规则，
+ * 早先把这个块放在 utilities 之后（无图层）时，它的 position 会盖掉 fixed 工具类，
+ * 结果弹窗被排到视口下方、只看得见遮罩。放进图层后由工具类说了算。
+ *
+ * 不写 position：面板靠 fixed 定位，fixed 自身就是 abs 子层的包含块，
+ * 弹窗内的环境光画布不需要额外 relative 祖先。
+ */
+@layer components {
+  .dialog-window {
+    isolation: isolate;
+    overflow: hidden;
+    background: var(--background);
+    border: 2px solid var(--window-edge);
+    border-radius: var(--radius-glass);
+    box-shadow: var(--window-shadow);
+  }
+
+  /* 弹窗自带的环境光画布（复用 AmbientBackground 组件）。
+     光斑按容器百分比缩放：环境背景用的是 vw，放进几百像素宽的弹窗会过大。
+     用 z-index:-1 是因为内容层由调用方提供，不便再包一层 relative z-10。 */
+  .dialog-ambient {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* 弹窗里光斑缩成百分比小块后，渐变半径若仍按基类的「最远角 × 68%」取，
+     淡出点会落在色块边界之外 —— 色块的直边就在弹窗内部切出一道亮色分界线。
+     这里改成按「最近边」取半径：光斑一定在碰到自己边界之前淡完，缝就没了。
+     （透明点必须写 100%，让渐变铺满最近边半径，否则等于又留了一圈硬边） */
+  .dialog-ambient .ambient-glow-1 {
+    top: -18%;
+    left: 31%;
+    width: 120%;
+    height: 120%;
+    background: radial-gradient(
+      circle closest-side,
+      color-mix(in srgb, var(--ambient-1) calc(var(--ambient-alpha) * 100%), transparent) 0%,
+      transparent 100%
+    );
+  }
+
+  .dialog-ambient .ambient-glow-2 {
+    right: -12%;
+    bottom: -22%;
+    width: 110%;
+    height: 110%;
+    background: radial-gradient(
+      circle closest-side,
+      color-mix(in srgb, var(--ambient-2) calc(var(--ambient-alpha) * 100%), transparent) 0%,
+      transparent 100%
+    );
+  }
+
+  .dialog-ambient .ambient-glow-3 {
+    bottom: -24%;
+    left: 12%;
+    width: 110%;
+    height: 110%;
+    background: radial-gradient(
+      circle closest-side,
+      color-mix(in srgb, var(--ambient-3) calc(var(--ambient-alpha) * 100%), transparent) 0%,
+      transparent 100%
+    );
+  }
+}
+
+/**
+ * Radix Select 的滚动视口会注入一段无图层样式把滚动条整个藏掉。
+ * 无图层规则优先于任何 @layer，所以这几条必须留在图层外，
+ * 并靠多带一个类（0,2,x vs 0,1,x）赢过它的 display:none。
+ */
+[data-radix-select-viewport].scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 20%, transparent) transparent;
+}
+
+[data-radix-select-viewport].scroll-thin::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+  height: 10px;
+}
+
+[data-radix-select-viewport].scroll-thin::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--foreground) 18%, transparent);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+[data-radix-select-viewport].scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+/**
+ * 编辑体 / 瑞士网格视觉层（日历三视图共用）
+ *
+ * 材质只有三样，重复出现才会形成语言：
+ *   1. 点阵（.dot-field）—— 极低对比的抹茶点，铺在浅色块上当肌理；
+ *   2. 发丝线（.hairline-*）—— 1px、14% 前景色，代替粗描边做分隔；
+ *   3. 栏线（.swiss-columns）—— 12 等分的竖细线，只给图表当底网。
+ * 颜色不新增，全部由 --foreground 混出来，所以永远跟着抹茶绿走，不会串色。
+ */
+@layer components {
+  .dot-field {
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--foreground) 22%, transparent) 1px,
+      transparent 1.1px
+    );
+    background-size: 10px 10px;
+    background-position: 2px 2px;
+  }
+
+  /* 更密一档：日期砖那种小面积用 */
+  .dot-field-dense {
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--foreground) 20%, transparent) 0.9px,
+      transparent 1px
+    );
+    background-size: 7px 7px;
+    background-position: 1px 1px;
+  }
+
+  .swiss-columns {
+    background-image: repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--foreground) 9%, transparent) 0 1px,
+      transparent 1px 8.3333%
+    );
+  }
+
+  .hairline-t {
+    border-top: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  }
+
+  .hairline-b {
+    border-bottom: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  }
+
+  .hairline-l {
+    border-left: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  }
+
+  /* 小标签：字距撑开、大写字重收细，瑞士海报里那种角标 */
+  .micro-label {
+    font-size: 9px;
+    line-height: 1.2;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+}
+
+/**
+ * 白噪音音量条
+ *
+ * 原生 range 的 accent-color 会把已填充段和滑块刷成深抹茶，未填充段还会
+ * 带一圈浏览器默认描边。这里统一换成软绿渐变轨道：无描边、无白边，
+ * 滑块用比填充略深一档的抹茶，既清楚又不抢视线。
+ * --noise-progress 由组件按当前音量写入，轨道据此切分已填充与未填充段。
+ */
+.noise-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.noise-range::-webkit-slider-runnable-track {
+  height: 5px;
+  border: 0;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--primary) 26%, var(--background)) 0,
+    color-mix(in srgb, var(--primary) 26%, var(--background)) var(--noise-progress, 50%),
+    color-mix(in srgb, var(--primary) 12%, transparent) var(--noise-progress, 50%),
+    color-mix(in srgb, var(--primary) 12%, transparent) 100%
+  );
+}
+
+.noise-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -4px;
+  border: 0;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--primary) 42%, var(--background));
+  box-shadow: 0 1px 2px oklch(0.24 0.035 135 / 0.16);
+}
+
+.noise-range::-moz-range-track {
+  height: 5px;
+  border: 0;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.noise-range::-moz-range-progress {
+  height: 5px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--primary) 26%, var(--background));
+}
+
+.noise-range::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: 0;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--primary) 42%, var(--background));
+}
+
+.noise-range:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline-offset: 2px;
+  border-radius: 9999px;
+}

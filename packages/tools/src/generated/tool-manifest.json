@@ -1,0 +1,376 @@
+{
+  "count": 53,
+  "tools": [
+    {
+      "id": "base64-image",
+      "name": "Base64/图片转换",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "图片与 Base64 字符串互转：粘贴 data URL 出 Base64，粘贴 Base64 出可直接引用的 data URL。"
+    },
+    {
+      "id": "bmi-calculator",
+      "name": "BMI值计算器",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "按身高体重计算 BMI，并给出偏瘦、正常、过重或肥胖的区间判断。"
+    },
+    {
+      "id": "char-lookup",
+      "name": "笔画数查询汉字",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "输入笔画数，列出这个笔画数的全部汉字，并可查单字的拼音与笔画。"
+    },
+    {
+      "id": "char-stroke-order",
+      "name": "汉字笔顺查询",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "查汉字笔顺，并用 cnchar.draw 演示笔顺步骤、循环动画或描写练习；同时列出笔画名称与总笔画数。"
+    },
+    {
+      "id": "color-codec",
+      "name": "颜色转换",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "RGB 与 #RRGGBB 颜色值双向转换，支持三位缩写十六进制。"
+    },
+    {
+      "id": "color-list",
+      "name": "超多配色",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "1741 个常用颜色（中国传统色、日本传统色、Material Design、Flat UI、WEB 安全色），点色块在右侧调色板里细调并复制。"
+    },
+    {
+      "id": "color-select",
+      "name": "颜色选择器",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "拖动饱和度/明度方块与色相条取色，或直接输入 HEX / RGB / HSL，一键复制当前颜色。"
+    },
+    {
+      "id": "constellation",
+      "name": "十二星座查询",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "左侧完整列出十二星座与日期区间，可直接点选；也支持按出生日期查询，边界按传统分界（3 月 21 日白羊起）。"
+    },
+    {
+      "id": "content-type",
+      "name": "Content-Type查询",
+      "version": "1.0.0",
+      "category": "coding",
+      "description": "66 个常见文件扩展名与 MIME 类型对照，支持按扩展名、MIME 或用途反查。"
+    },
+    {
+      "id": "current-ip",
+      "name": "当前IP信息",
+      "version": "1.0.0",
+      "category": "webmaster",
+      "description": "列出本机各网卡地址，并查询出口 IP 与所属地区；地址点击即可复制。"
+    },
+    {
+      "id": "file-base64",
+      "name": "任意文件转Base64",
+      "version": "1.0.0",
+      "category": "webmaster",
+      "description": "任意文件转成 Base64 或完整 data URL，可折行，体积与膨胀率一并算好。"
+    },
+    {
+      "id": "file-hash",
+      "name": "计算文件Hash值",
+      "version": "1.0.0",
+      "category": "webmaster",
+      "description": "算文件的 MD5 / SHA-1 / SHA-256 / SHA-512，一次列出多个算法结果，便于核对下载是否完整。"
+    },
+    {
+      "id": "fullwidth-halfwidth",
+      "name": "全角半角转换",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "在 ASCII 半角与全角字符之间转换，空格会同步转为全角空格或半角空格。"
+    },
+    {
+      "id": "getcolorthief",
+      "name": "图片生成色卡",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "从图片里提取主色与配色板（MMCQ 中位切分量化），给出十六进制与 RGB 值。"
+    },
+    {
+      "id": "gif2frames",
+      "name": "GIF图片转帧",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "把 GIF 动画逐帧拆成 PNG：显示尺寸与张数，可全选/取消、复制单张或整批保存到文件夹。"
+    },
+    {
+      "id": "github-trending",
+      "name": "GitHub趋势榜",
+      "version": "1.0.0",
+      "category": "coding",
+      "description": "按语言和月/周/天查看 GitHub Trending 项目，显示描述、星标、Fork 与新增关注。"
+    },
+    {
+      "id": "id-card",
+      "name": "身份证信息查询",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "校验身份证号（15 / 18 位）并解析出地区、生日、性别、年龄与星座。"
+    },
+    {
+      "id": "idiom-query",
+      "name": "成语接龙小助手",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "30741 条汉语成语：支持汉字包含/开头/结尾与拼音检索，可按字数筛选、随机抽一条并分页加载。"
+    },
+    {
+      "id": "image-compress",
+      "name": "图片压缩工具",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "按缩放比例与画质压缩图片（PNG / JPEG / WebP），并给出压缩前后的体积对比。"
+    },
+    {
+      "id": "image-crop",
+      "name": "图片裁剪",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "按坐标裁剪图片，自带 1:1 头像、证件照（一寸 / 二寸）等常用比例预设。"
+    },
+    {
+      "id": "image-round",
+      "name": "图片转圆角图片",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "给图片加圆角，可按像素或短边百分比设置，输出 PNG 保留透明角。"
+    },
+    {
+      "id": "image-viewer",
+      "name": "图片预览查看",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "一次选择多张本地图片，网格预览，点开可全屏切换；右下角一键关闭全部预览。"
+    },
+    {
+      "id": "image-watermark",
+      "name": "图片全屏水印",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "在整张图上铺满斜向重复文字水印，可调内容、字号、颜色、透明度与角度。"
+    },
+    {
+      "id": "ip-query",
+      "name": "IP地址信息查询",
+      "version": "1.0.0",
+      "category": "webmaster",
+      "description": "输入 IPv4 地址，查询归属地、经纬度、时区、运营商、组织与邮编。"
+    },
+    {
+      "id": "kaomoji",
+      "name": "颜文字表情",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "999 个带名称的颜文字表情，按关键词筛选后一键复制。"
+    },
+    {
+      "id": "m3u8-player",
+      "name": "M3U8播放器",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "输入 HTTP(S) 的 M3U8 或常见视频地址，本地用 hls.js 播放，支持倍速、循环与全屏。"
+    },
+    {
+      "id": "markdown-converter",
+      "name": "Markdown编辑器",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "把 Markdown 转成 HTML，并可同时提取标题大纲与字数统计。"
+    },
+    {
+      "id": "notes",
+      "name": "备忘录",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "本地便签：新建、编辑、删除与清空，内容存在本机，关掉应用也还在。"
+    },
+    {
+      "id": "password-strength",
+      "name": "密码强度检测",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "输入即按长度与字符种类给密码分级（低 / 中 / 高），并指出还缺哪类字符。"
+    },
+    {
+      "id": "paste-image-view",
+      "name": "剪切板图片查看下载",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "读取剪贴板里的图片并全屏查看，右下角可保存为图片文件；关闭后清空预览。"
+    },
+    {
+      "id": "pinyin-convert",
+      "name": "中文转拼音",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "把中文转成拼音：带声调、纯小写、首字母或多音字全列，可自定义分隔符。"
+    },
+    {
+      "id": "pinyin-sort",
+      "name": "拼音排序字符串",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "把多行文本按拼音或笔画排序，中英混排也能用。"
+    },
+    {
+      "id": "placeholder-image",
+      "name": "占位图片生成",
+      "version": "1.0.0",
+      "category": "design",
+      "description": "按尺寸、底色与文字生成占位图，直接给 SVG data URL，也可让宿主渲成 PNG。"
+    },
+    {
+      "id": "qrcode",
+      "name": "二维码生成",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "把网址、文本、电话等内容生成为二维码 SVG，可调容错级别与尺寸，支持下载 PNG。"
+    },
+    {
+      "id": "random-string",
+      "name": "随机字符串生成",
+      "version": "1.0.0",
+      "category": "coding",
+      "description": "按所选字符集批量生成随机字符串，可控制长度、数量与是否允许重复。"
+    },
+    {
+      "id": "reaction-test",
+      "name": "反应速度测试",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "单次反应测试：背景 1–10 秒随机变色后按空格，显示反应秒数；抢按会进入失败页，可反复重测。"
+    },
+    {
+      "id": "remove-character",
+      "name": "去除特定字符",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "一键移除文本中的中文、数字、英文或标点符号，保留其余内容与换行。"
+    },
+    {
+      "id": "screencheck",
+      "name": "屏幕坏点检测",
+      "version": "1.0.0",
+      "category": "webmaster",
+      "description": "在右侧选择任意颜色后进入全屏，用纯色检查显示器坏点、亮点与色斑，按 ESC 退出。"
+    },
+    {
+      "id": "simplified-traditional",
+      "name": "简繁转换",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "简体转繁体、繁体转简体，另附火星文（非主流）转换；逐字对照给出改了哪些字。"
+    },
+    {
+      "id": "special-symbols",
+      "name": "特殊符号",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "下标上标、货币、箭头、图形、办公等 31 组共 2059 个特殊符号，支持分组与关键词查找。"
+    },
+    {
+      "id": "storage-size",
+      "name": "存储文件大小换算",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "在 bit、Byte、KB、MB、GB、TB 之间按 1024 进制换算。"
+    },
+    {
+      "id": "stroke-count",
+      "name": "汉字查询笔画数",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "统计整段中文的总笔画，并给出每个字的笔画数；非汉字会被跳过。"
+    },
+    {
+      "id": "symmetric-crypto",
+      "name": "对称加密",
+      "version": "1.0.0",
+      "category": "coding",
+      "description": "AES / DES / 3DES / RC4 / Rabbit 的加解密，可选 CBC、ECB、CFB、OFB、CTR 模式与多种填充。"
+    },
+    {
+      "id": "text-auto-space",
+      "name": "中英文间加空格",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "基于 pangu 完整排版规则：中文与英文、数字、标点、引号、括号、百分号之间自动补空格，也可把半角标点转全角。"
+    },
+    {
+      "id": "text-diff",
+      "name": "文本对比工具",
+      "version": "1.0.0",
+      "category": "coding",
+      "description": "按行、词或字符比较两段文本的差异，输出可读的增删统计与差异片段。"
+    },
+    {
+      "id": "text-hex",
+      "name": "十六进制文本转换",
+      "version": "1.0.0",
+      "category": "coding",
+      "description": "把 UTF-8 文本转为十六进制字节串，或把十六进制还原为文本；空格可忽略。"
+    },
+    {
+      "id": "text-length",
+      "name": "字符串长度计算",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "统计字符数、码点数、UTF-8 字节数、行数、单词数与中文字数。"
+    },
+    {
+      "id": "text-transform",
+      "name": "文本去重与批量替换",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "按行去除重复内容，或对整段文本做字面 / 正则批量替换，并给出替换次数统计。"
+    },
+    {
+      "id": "text2image",
+      "name": "文本转图片",
+      "version": "1.0.0",
+      "category": "reporter",
+      "description": "把一段文字排成图片：可调字号与对齐，自动换行，底部带生成署名，支持保存 PNG。"
+    },
+    {
+      "id": "unicode-codec",
+      "name": "Unicode 编码解码",
+      "version": "1.0.0",
+      "category": "coding",
+      "description": "按 encodeURIComponent 规则把文本转成百分号转义，或还原为文本。"
+    },
+    {
+      "id": "url-codec",
+      "name": "URL编码解码",
+      "version": "1.0.0",
+      "category": "coding",
+      "description": "按 encodeURI / decodeURI 规则编码或解码 URL，保留 :/?#[]@ 等结构字符。"
+    },
+    {
+      "id": "weibo-user",
+      "name": "微博反查图片上传者",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "粘贴 sinaimg.cn 图片地址，从文件名解析微博用户 ID 与主页；全程离线，不发请求。"
+    },
+    {
+      "id": "zero-width-codec",
+      "name": "隐藏字符加密解密",
+      "version": "1.0.0",
+      "category": "life",
+      "description": "把文字藏进看不见的零宽字符里（复制粘贴可见原文、实际带着密文），也能还原出来。"
+    }
+  ]
+}

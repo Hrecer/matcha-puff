@@ -1,0 +1,38 @@
+/**
+ * 全局最小集（文档根）
+ *
+ * 页面样式全部来自 theme.css（Tailwind 4 + 令牌 + 玻璃/环境光材质类）。
+ * 这里只保留文档根必需的规则：高度链、字体平滑、主题令牌挂载点，
+ * 以及「按住修饰键不显示焦点环」这一条修正。
+ */
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/**
+ * 焦点环只在键盘 Tab 导航时出现。
+ *
+ * Chromium 的 `:focus-visible` 会在非键盘场景误触发：按下 Shift / Ctrl / Alt、
+ * 鼠标按住按钮不松手再敲修饰键、窗口程序化聚焦…… 表现就是按钮突然多出描边。
+ * 这里改成自己认定：`html.keyboard-nav` 只在按 Tab 时挂上，鼠标按下立即撤掉
+ * （标记由 lib/webview-guards.ts 维护）。
+ *
+ * 选择器限定在可交互元素上，避免连带清掉面板、玻璃材质等其它 box-shadow。
+ */
+html:not(.keyboard-nav) button:focus-visible,
+html:not(.keyboard-nav) [role='button']:focus-visible,
+html:not(.keyboard-nav) [role='menuitem']:focus-visible,
+html:not(.keyboard-nav) [role='option']:focus-visible,
+html:not(.keyboard-nav) input:focus-visible,
+html:not(.keyboard-nav) textarea:focus-visible,
+html:not(.keyboard-nav) select:focus-visible,
+html:not(.keyboard-nav) a:focus-visible,
+html:not(.keyboard-nav) [tabindex]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}

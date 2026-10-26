@@ -1,0 +1,23 @@
+{
+  "name": "@matcha-puff/tool-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "抹茶泡芙 · 工具契约：插件类型、统一结果模型、执行上下文",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

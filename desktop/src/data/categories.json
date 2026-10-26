@@ -1,0 +1,198 @@
+[
+ {
+  "id": 1,
+  "code": "webmaster",
+  "icon": "ri-terminal-box-line",
+  "name": "系统运维",
+  "parent_id": 0
+ },
+ {
+  "id": 2,
+  "code": "reporter",
+  "icon": "ri-edit-box-line",
+  "name": "编辑工具",
+  "parent_id": 0
+ },
+ {
+  "id": 3,
+  "code": "coding",
+  "icon": "ri-code-s-slash-line",
+  "name": "编程工具",
+  "parent_id": 0
+ },
+ {
+  "id": 4,
+  "code": "design",
+  "icon": "ri-paint-brush-line",
+  "name": "设计工具",
+  "parent_id": 0
+ },
+ {
+  "id": 5,
+  "code": "life",
+  "icon": "ri-sun-line",
+  "name": "生活常用",
+  "parent_id": 0
+ },
+ {
+  "id": 7,
+  "code": "coding-encryption",
+  "icon": "ri-key-line",
+  "name": "加密解密",
+  "parent_id": 3
+ },
+ {
+  "id": 8,
+  "code": "coding-encode",
+  "icon": "ri-file-code-line",
+  "name": "编码解码",
+  "parent_id": 3
+ },
+ {
+  "id": 9,
+  "code": "coding-code",
+  "icon": "ri-code-line",
+  "name": "代码",
+  "parent_id": 3
+ },
+ {
+  "id": 10,
+  "code": "coding-debug",
+  "icon": "ri-bug-line",
+  "name": "调试",
+  "parent_id": 3
+ },
+ {
+  "id": 11,
+  "code": "coding-query",
+  "icon": "ri-article-line",
+  "name": "文档",
+  "parent_id": 3
+ },
+ {
+  "id": 12,
+  "code": "design-color",
+  "icon": "ri-palette-line",
+  "name": "颜色",
+  "parent_id": 4
+ },
+ {
+  "id": 13,
+  "code": "design-size",
+  "icon": "ri-expand-up-down-line",
+  "name": "尺寸",
+  "parent_id": 4
+ },
+ {
+  "id": 14,
+  "code": "design-image-video",
+  "icon": "ri-image-line",
+  "name": "图片",
+  "parent_id": 4
+ },
+ {
+  "id": 15,
+  "code": "design-convertcompress",
+  "icon": "ri-file-zip-line",
+  "name": "转换压缩",
+  "parent_id": 4
+ },
+ {
+  "id": 16,
+  "code": "design-art",
+  "icon": "ri-earth-line",
+  "name": "艺术",
+  "parent_id": 4
+ },
+ {
+  "id": 17,
+  "code": "life-recreation",
+  "icon": "ri-emotion-laugh-line",
+  "name": "娱乐",
+  "parent_id": 5
+ },
+ {
+  "id": 18,
+  "code": "life-efficiency",
+  "icon": "ri-timer-line",
+  "name": "效率",
+  "parent_id": 5
+ },
+ {
+  "id": 19,
+  "code": "life-date",
+  "icon": "ri-time-line",
+  "name": "时间",
+  "parent_id": 5
+ },
+ {
+  "id": 20,
+  "code": "life-query",
+  "icon": "ri-git-repository-line",
+  "name": "查询",
+  "parent_id": 5
+ },
+ {
+  "id": 21,
+  "code": "life-convert",
+  "icon": "ri-arrow-left-right-line",
+  "name": "转换",
+  "parent_id": 5
+ },
+ {
+  "id": 22,
+  "code": "life-image-video",
+  "icon": "ri-movie-2-line",
+  "name": "图片视频",
+  "parent_id": 5
+ },
+ {
+  "id": 23,
+  "code": "reporter-edit",
+  "icon": "ri-edit-2-line",
+  "name": "编辑",
+  "parent_id": 2
+ },
+ {
+  "id": 24,
+  "code": "reporter-chinese-char",
+  "icon": "ri-pinyin-input",
+  "name": "汉字",
+  "parent_id": 2
+ },
+ {
+  "id": 25,
+  "code": "reporter-text-extraction",
+  "icon": "ri-quote-text",
+  "name": "文字提取",
+  "parent_id": 2
+ },
+ {
+  "id": 26,
+  "code": "webmaster-network",
+  "icon": "ri-cloud-line",
+  "name": "网络",
+  "parent_id": 1
+ },
+ {
+  "id": 27,
+  "code": "webmaster-system",
+  "icon": "ri-database-2-line",
+  "name": "系统",
+  "parent_id": 1
+ },
+ {
+  "id": 28,
+  "code": "webmaster-service",
+  "icon": "ri-customer-service-line",
+  "name": "服务",
+  "parent_id": 1
+ },
+ {
+  "id": 29,
+  "code": "webmaster-domain",
+  "icon": "ri-window-2-line",
+  "name": "域名",
+  "parent_id": 1
+ }
+]

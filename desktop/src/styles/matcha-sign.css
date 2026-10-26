@@ -1,0 +1,136 @@
+/* 逐笔描线：起笔前整体隐藏，避免圆头笔帽在起点露出残点 */
+.ms-draw {
+  opacity: 0;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation:
+    ms-draw var(--dur, 0.4s) cubic-bezier(0.45, 0.05, 0.35, 1) forwards,
+    ms-appear 0.01s linear forwards;
+  animation-delay:
+    var(--d, 0s),
+    var(--d, 0s);
+}
+
+@keyframes ms-appear {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ms-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 圆点/爪印/爱心弹入 */
+.ms-pop {
+  opacity: 0;
+  transform: scale(0);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ms-pop 0.5s cubic-bezier(0.3, 1.5, 0.5, 1) forwards;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes ms-pop {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 星芒：弹入后持续闪烁 */
+.ms-twinkle {
+  opacity: 0;
+  transform: scale(0);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation:
+    ms-pop 0.45s cubic-bezier(0.3, 1.5, 0.5, 1) forwards,
+    ms-twinkle 1.9s ease-in-out infinite;
+  animation-delay:
+    var(--d, 0s),
+    calc(var(--d, 0s) + 0.55s);
+}
+
+@keyframes ms-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.78);
+  }
+}
+
+/* 辉光层呼吸 */
+.ms-glow {
+  animation: ms-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes ms-breathe {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* 整体轻微浮动 */
+.ms-float {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ms-float 3.4s ease-in-out infinite;
+}
+
+@keyframes ms-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* 手写笔字与写出遮罩 */
+.ms-hand {
+  font-family:
+    'Segoe Script',
+    'Brush Script MT',
+    'Comic Sans MS',
+    cursive;
+  font-size: 46px;
+}
+
+.ms-wipe {
+  width: 0;
+  animation: ms-wipe 1.5s cubic-bezier(0.4, 0.1, 0.3, 1) forwards;
+  animation-delay: 1.7s;
+}
+
+@keyframes ms-wipe {
+  to {
+    width: 460px;
+  }
+}
+
+/* 一轮结束：淡出后由组件重挂载重新开始 */
+.ms-exit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ms-exit 0.7s ease-in forwards;
+  animation-delay: 4.7s;
+}
+
+@keyframes ms-exit {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}

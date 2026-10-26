@@ -1,0 +1,39 @@
+{
+  "name": "@matcha-puff/tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "抹茶泡芙 · 内置工具插件集合",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./manifest": "./src/generated/tool-manifest.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@matcha-puff/tool-contracts": "workspace:*",
+    "@types/crypto-js": "^4.2.2",
+    "cnchar": "^3.2.6",
+    "cnchar-order": "^3.2.6",
+    "cnchar-poly": "^3.2.6",
+    "cnchar-trad": "^3.2.6",
+    "crypto-js": "^4.2.0",
+    "marked": "^16.4.1",
+    "pangu": "^10.4.1",
+    "qrcode": "^1.5.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@matcha-puff/tool-runtime": "workspace:*",
+    "@matcha-puff/tool-settings": "workspace:*",
+    "@types/qrcode": "^1.5.6",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4"
+  }
+}

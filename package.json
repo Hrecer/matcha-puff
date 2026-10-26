@@ -1,0 +1,29 @@
+{
+  "name": "matcha-puff",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "抹茶泡芙 · 插件化桌面工具平台",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "desktop:dev": "pnpm --filter @matcha-puff/desktop dev",
+    "desktop:build": "pnpm --filter @matcha-puff/desktop build",
+    "desktop:bundle": "pnpm desktop:build && pnpm --filter @matcha-puff/desktop tauri build --bundles nsis",
+    "desktop:typecheck": "pnpm --filter @matcha-puff/desktop typecheck",
+    "packages:build": "pnpm plugin:index && pnpm -r --filter \"./packages/**\" build",
+    "plugin:index": "tsx scripts/generate-tool-index.ts",
+    "plugin:validate": "tsx scripts/validate-plugins.ts",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test && pnpm plugin:validate"
+  },
+  "devDependencies": {
+    "@matcha-puff/tool-runtime": "workspace:*",
+    "@matcha-puff/tools": "workspace:*",
+    "tsx": "^4.20.6",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4"
+  }
+}

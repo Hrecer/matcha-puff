@@ -1,0 +1,22 @@
+# 依赖与构建产物（体积大、可重建）
+node_modules/
+desktop/src-tauri/target/
+desktop/frontend/next/
+packages/*/dist/
+
+# 本地运行时数据
+desktop/src-tauri/target/release/data/
+*.log
+
+# 界面差异审查输出（脚本生成，可重跑）
+shots-audit/
+
+# 运行时数据（dev 下曾把数据库解析到 resources 里并被误提交，双重保险）
+desktop/src-tauri/resources/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+# Tauri 构建时生成的权限 schema（IDE 辅助文件，纯派生）
+desktop/src-tauri/gen/
