@@ -23,29 +23,29 @@ pnpm check
 
 类型检查、单测、插件定义校验任一失败就停下，修复后再继续。
 
-### 3. 打安装包
+### 3. 打安装包（自动复制到工作区根目录）
 
 ```powershell
 pnpm desktop:bundle
 ```
 
-产物路径：
-
-```
-desktop/src-tauri/target/release/bundle/nsis/抹茶泡芙_<version>_x64-setup.exe
-```
-
-打包会重新构建前端并执行 `tauri build --bundles nsis`，安装包内置的是当前工作区的源码与前端产物。
-
-### 4. 把安装包放到工作区根目录
-
-把上一步的 exe 复制到工作区根目录（仓库的上一级，即 `g:\抹茶泡芙开发\`），保留版本号：
+`desktop:bundle` 出包后会自动执行 `release:copy`，把安装包复制到**固定的工作区根目录**（仓库的上一级，即 `g:\抹茶泡芙开发\`）：
 
 ```
 g:\抹茶泡芙开发\抹茶泡芙_<version>_x64-setup.exe
 ```
 
-安装包属于构建产物，不提交进仓库（`target/` 已在 `.gitignore` 中忽略），只放在工作区根目录。
+复制逻辑在 `scripts/copy-installer.ts`：目标目录固定为仓库上一级，文件名固定为 `<productName>_<version>_x64-setup.exe`，不依赖手动拖拽或临时目录。安装包属于构建产物，不提交进仓库（`target/` 已在 `.gitignore` 中忽略），只放在工作区根目录。
+
+安装包外观素材固定在 `desktop/src-tauri/icons/nsis/`：`header.bmp`（150×57）、`sidebar.bmp`（164×314）；安装包与卸载器图标使用 `icons/icon.ico`；配置见 `desktop/src-tauri/tauri.conf.json` 的 `bundle.windows.nsis`。
+
+### 4. 确认安装包落点
+
+```powershell
+Get-Item "..\抹茶泡芙_<version>_x64-setup.exe"
+```
+
+必须确认文件存在、版本号与本次发布一致。没有看到文件就是打包或复制失败，先执行 `pnpm release:copy` 补齐；仍然失败就停止发布，不要提交或打标签。
 
 ### 5. 提交、打标签、推送
 

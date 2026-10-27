@@ -1,6 +1,6 @@
 {
   "name": "matcha-puff",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "抹茶泡芙 · 插件化桌面工具平台",
@@ -10,7 +10,8 @@
   "scripts": {
     "desktop:dev": "pnpm --filter @matcha-puff/desktop dev",
     "desktop:build": "pnpm --filter @matcha-puff/desktop build",
-    "desktop:bundle": "pnpm desktop:build && pnpm --filter @matcha-puff/desktop tauri build --bundles nsis",
+    "desktop:bundle": "pnpm desktop:build && pnpm --filter @matcha-puff/desktop tauri build --bundles nsis && pnpm release:copy",
+    "release:copy": "tsx scripts/copy-installer.ts",
     "desktop:typecheck": "pnpm --filter @matcha-puff/desktop typecheck",
     "packages:build": "pnpm plugin:index && pnpm -r --filter \"./packages/**\" build",
     "plugin:index": "tsx scripts/generate-tool-index.ts",
