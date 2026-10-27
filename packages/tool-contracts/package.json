@@ -1,6 +1,6 @@
 {
   "name": "@matcha-puff/tool-contracts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "抹茶泡芙 · 工具契约：插件类型、统一结果模型、执行上下文",

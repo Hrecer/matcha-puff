@@ -947,8 +947,9 @@ export function TasksTab({ onStart }: { onStart: (task: TaskRef, minutes: number
   }
 
   /**
-   * 逾期是会传染的：只要有一个后代叶子逾期，它上面每一级都跟着显示「已逾期」。
-   * 不然父任务看着一切正常，点开才发现里面躺着一条过期的。
+   * 逾期按每条任务自己的汇总截止日独立判断，不向上传染。
+   * 容器的截止日由子任务汇总而来，只有这个汇总日期也过期了才显示「已逾期」；
+   * 单个子任务过期不会让整条父任务跟着变红。
    * 判定和归档共用一份（focus-data 的 overdueTaskIds），两边口径不会走偏。
    */
   const overdueIds = useMemo(() => overdueTaskIds(tree.list), [tree.list, todayStamp])
@@ -963,7 +964,7 @@ export function TasksTab({ onStart }: { onStart: (task: TaskRef, minutes: number
     const { task } = node
     const isContainer = node.isContainer
     const complete = node.complete
-    // 逾期向上传染（见 overdueIds）：自己逾期、或任一后代逾期，都算这条逾期
+    // 逾期只看自己的汇总截止日（见 overdueIds）：容器判断的是子任务汇总出的最晚截止日是否已过
     const overdue = overdueIds.has(task.id)
     // 倒数是结束日的展示，不另存字段；容器用子任务汇总出的最晚结束日
     const countdown = !complete && node.endDate > 0 ? taskCountdown(node.endDate) : null

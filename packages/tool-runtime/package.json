@@ -1,6 +1,6 @@
 {
   "name": "@matcha-puff/tool-runtime",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "抹茶泡芙 · 工具注册表与统一执行内核",
