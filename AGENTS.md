@@ -62,3 +62,20 @@ git push origin vX.Y.Z
 - 标签必须打在与安装包完全一致的提交上；
 - 推送前确认 `git status` 干净、版本号各处一致；
 - 任一步失败都不要推标签，修复后重新打包再走完流程。
+
+### 6. 发布 GitHub Release（正文必须为空）
+
+```powershell
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file <空文件>
+gh release upload vX.Y.Z "..\抹茶泡芙_<version>_x64-setup.exe"
+```
+
+Release 正文必须完全为空：不写任何说明、变更列表、校验结果或其它文字，什么都不要写。
+
+GitHub 会丢弃中文附件名（`抹茶泡芙_...` 会变成 `_...`），上传后必须用 API 把附件重命名为 ASCII：
+
+```powershell
+gh api -X PATCH repos/Hrecer/matcha-puff/releases/assets/<asset-id> -f name="matcha-puff_<version>_x64-setup.exe"
+```
+
+发布后确认：`body` 为空，附件存在且名为 `matcha-puff_<version>_x64-setup.exe`。
