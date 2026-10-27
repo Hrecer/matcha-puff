@@ -11,8 +11,9 @@ const config = JSON.parse(
 ) as { productName: string; version: string }
 
 const bundleDir = join(repoRoot, 'desktop', 'src-tauri', 'target', 'release', 'bundle', 'nsis')
-const fileName = `${config.productName}_${config.version}_x64-setup.exe`
-const source = join(bundleDir, fileName)
+const sourceName = `${config.productName}_${config.version}_x64-setup.exe`
+const source = join(bundleDir, sourceName)
+const fileName = `matcha-puff_${config.version}_x64-setup.exe`
 
 if (!existsSync(source)) {
   const existing = existsSync(bundleDir)
