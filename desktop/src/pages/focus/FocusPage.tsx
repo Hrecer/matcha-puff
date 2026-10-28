@@ -192,8 +192,15 @@ function TimerTab() {
   /** 专注走完、等用户确认：不计时、不自动进休息 */
   const awaiting = phase === 'awaiting'
   const liveTask = snapshot?.task ?? UNASSIGNED_TASK
-  const task = phase === 'idle' ? (picked?.task ?? snapshot?.task ?? UNASSIGNED_TASK) : liveTask
+  // 空闲态只认「下一次要开始的选择」：上一段留下的任务/习惯不在这里沿用，
+  // 否则休息结束后计时页还挂着它，看起来像没退出。
+  const task = phase === 'idle' ? (picked?.task ?? UNASSIGNED_TASK) : liveTask
   const startMinutes = picked?.minutes ?? config.pomodoroTime
+
+  // 选择一旦交给会话，就不再作为「下一次」的预设：这段结束后回到未命名待命态。
+  useEffect(() => {
+    if (phase !== 'idle') setPicked(null)
+  }, [phase])
 
   const remainText = useMemo(() => {
     if (phase === 'idle') return { minutes: makeupTime(config.pomodoroTime), seconds: '00' }

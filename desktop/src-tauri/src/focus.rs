@@ -265,8 +265,7 @@ impl FocusState {
         self.remaining_ms = 0;
         self.accumulated_ms = 0;
         self.deadline = 0;
-        self.task = None;
-        self.session_id = None;
+        self.release_task();
     }
 
     /// 跳过休息：下一段专注由 TS 决定
@@ -295,14 +294,25 @@ impl FocusState {
         self.remaining_ms = 0;
         self.accumulated_ms = 0;
         self.deadline = 0;
+        self.release_task();
     }
 
     pub fn clear_pending(&mut self) {
         self.pending = None;
     }
 
+    /// 一段计时彻底结束：任务上下文随这一段一起释放。
+    ///
+    /// 空闲态再挂着上一段的任务/习惯，计时页就会继续把它当成当前任务显示，
+    /// 下一次「开始」也会直接沿用；自动下一个要续的任务由 pending.task 携带。
+    fn release_task(&mut self) {
+        self.task = None;
+        self.session_id = None;
+    }
+
     /// 手动开始休息：时长与短/长种类由 TS 判定（业务语义在 TS），Rust 只负责计时。
-    /// task 保留不清，休息结束后的「自动下一个」仍能延续同一任务。
+    /// 休息期间 task 仍然保留（挂件能显示、自动下一个要续它），
+    /// 休息结束结算时释放；要续的任务由 pending.task 带回 TS。
     pub fn start_rest(&mut self, minutes: i64, kind: RestKind, now: i64) {
         let minutes = minutes.clamp(1, 600);
         self.phase = Phase::Rest;
@@ -366,6 +376,8 @@ impl FocusState {
                 if self.policy.disable_rest {
                     self.phase = Phase::Idle;
                     self.rest_kind = None;
+                    // 这一段直接收尾，空闲态不再挂着它；自动下一个从 pending 里取任务
+                    self.release_task();
                 } else {
                     self.phase = Phase::Awaiting;
                     self.rest_kind = Some(rest_kind(
@@ -400,6 +412,8 @@ impl FocusState {
                 self.deadline = 0;
                 self.accumulated_ms = 0;
                 self.remaining_ms = 0;
+                // 休息走完 = 这一轮彻底结束；任务上下文不留在空闲态
+                self.release_task();
                 Some(pending)
             }
             _ => None,
@@ -491,6 +505,7 @@ pub fn restore(mut state: FocusState, now: i64) -> (FocusState, bool) {
             state.deadline = 0;
             state.accumulated_ms = 0;
             state.remaining_ms = 0;
+            state.release_task();
             changed = true;
         }
         Phase::Rest if state.deadline <= now => {
@@ -507,7 +522,15 @@ pub fn restore(mut state: FocusState, now: i64) -> (FocusState, bool) {
             state.deadline = 0;
             state.accumulated_ms = 0;
             state.remaining_ms = 0;
+            state.release_task();
             changed = true;
+        }
+        Phase::Idle => {
+            // 旧版本把休息结束后的任务留在了空闲态：启动时顺手清掉
+            if state.task.is_some() || state.session_id.is_some() {
+                state.release_task();
+                changed = true;
+            }
         }
         _ => {}
     }
@@ -580,6 +603,13 @@ mod tests {
             long_rest_interval: 4,
             auto_rest,
             disable_rest: false,
+        }
+    }
+
+    fn no_rest_policy() -> Policy {
+        Policy {
+            disable_rest: true,
+            ..policy(false)
         }
     }
 
@@ -701,6 +731,94 @@ mod tests {
         assert_eq!(pending.seconds, 60);
         assert!(!pending.completed);
         assert_eq!(state.phase, Phase::Idle);
+        assert!(state.task.is_none(), "停止后不再挂着这一段的任务");
+    }
+
+    #[test]
+    fn awaiting_keeps_task_but_rest_end_releases_it() {
+        let mut state = FocusState::default();
+        state.start(1, task(), policy(false), 0);
+        tick(&mut state, 60_000);
+        assert_eq!(state.phase, Phase::Awaiting);
+        assert_eq!(state.task.as_ref().map(|item| item.id.as_str()), Some("t1"));
+
+        state.start_rest(1, RestKind::Short, 60_000);
+        assert_eq!(
+            state.task.as_ref().map(|item| item.id.as_str()),
+            Some("t1"),
+            "休息期间仍带着本次任务，供自动下一个续上"
+        );
+
+        let out = tick(&mut state, 120_000);
+        let pending = out.finished.expect("休息结束应结算");
+        assert_eq!(
+            pending.task.as_ref().map(|item| item.id.as_str()),
+            Some("t1"),
+            "待结算记录保留任务，自动下一个仍能续上"
+        );
+        assert_eq!(state.phase, Phase::Idle);
+        assert!(state.task.is_none(), "休息结束后释放任务上下文");
+        assert!(state.session_id.is_none(), "休息结束后释放会话");
+    }
+
+    #[test]
+    fn skip_rest_releases_task_but_pending_keeps_it() {
+        let mut state = FocusState::default();
+        state.start(1, task(), policy(false), 0);
+        tick(&mut state, 60_000);
+        state.start_rest(5, RestKind::Short, 60_000);
+
+        state.skip_rest(90_000);
+        let pending = state.pending.clone().expect("跳过休息应留下结算");
+        assert_eq!(pending.phase, ActivePhase::Rest);
+        assert_eq!(
+            pending.task.as_ref().map(|item| item.id.as_str()),
+            Some("t1")
+        );
+        assert_eq!(state.phase, Phase::Idle);
+        assert!(state.task.is_none(), "跳过休息后不再挂着上一段的任务");
+    }
+
+    #[test]
+    fn disabling_rest_ends_session_without_task() {
+        let mut state = FocusState::default();
+        state.start(1, task(), no_rest_policy(), 0);
+        let out = tick(&mut state, 60_000);
+        assert!(out.finished.is_some());
+        assert_eq!(state.phase, Phase::Idle);
+        assert!(state.pending.is_some(), "结算仍然保留");
+        assert!(state.task.is_none(), "禁用休息直接收尾，不保留任务");
+    }
+
+    #[test]
+    fn restore_clears_stale_idle_task() {
+        let mut state = FocusState::default();
+        state.task = Some(task());
+        state.session_id = Some("s1".into());
+
+        let (restored, changed) = restore(state, 5_000);
+        assert!(changed);
+        assert_eq!(restored.phase, Phase::Idle);
+        assert!(restored.task.is_none());
+        assert!(restored.session_id.is_none());
+    }
+
+    #[test]
+    fn restore_expired_rest_releases_task() {
+        let mut state = FocusState::default();
+        state.phase = Phase::Rest;
+        state.task = Some(task());
+        state.session_id = Some("s1".into());
+        state.rest_kind = Some(RestKind::Short);
+        state.duration_ms = 300_000;
+        state.deadline = 1_000;
+
+        let (restored, changed) = restore(state, 5_000);
+        assert!(changed);
+        assert_eq!(restored.phase, Phase::Idle);
+        let pending = restored.pending.clone().expect("应补结算");
+        assert!(pending.task.is_some(), "补结算仍带着任务");
+        assert!(restored.task.is_none(), "恢复后不再挂着任务");
     }
 
     #[test]
@@ -715,9 +833,10 @@ mod tests {
         let (restored, changed) = restore(state, 5_000);
         assert!(changed);
         assert_eq!(restored.phase, Phase::Idle);
-        let pending = restored.pending.expect("应补结算");
+        let pending = restored.pending.clone().expect("应补结算");
         assert_eq!(pending.seconds, 600);
         assert!(!pending.completed);
+        assert!(restored.task.is_none(), "恢复后不再挂着任务");
     }
 
     #[test]
