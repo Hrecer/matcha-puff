@@ -1,6 +1,6 @@
 [package]
 name = "matcha_puff"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "抹茶泡芙 · 桌面效率工具平台"
 
