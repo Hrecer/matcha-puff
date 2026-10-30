@@ -1,6 +1,6 @@
 {
   "name": "@matcha-puff/tool-settings",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "description": "抹茶泡芙 · 工具设置与本地持久化（JSON / Store，不使用 SQL）",

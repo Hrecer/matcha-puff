@@ -4,6 +4,13 @@
 
 版本号格式 `MAJOR.MINOR.PATCH`，标签格式 `vX.Y.Z`（例如 `v0.1.1`）。
 
+### 顺序不能调换：先出包，再提交和打标签
+
+安装包是构建产物、不进仓库，但**标签必须指向与安装包完全一致的那次提交**。
+先 commit 再打包的话，一旦打包失败（文件被占用、编译报错），标签要么指向一个
+没有产物的提交，要么得删了重打。所以固定顺序是 **1 → 6**：任何一步失败都停在
+推送之前，不会留下半成品标签。
+
 ### 1. 改版本号
 
 `desktop/src-tauri/tauri.conf.json` 的 `version` 是应用版本的唯一来源（前端通过 `vite.config.ts` 注入），必须与下面这些文件保持一致：
@@ -25,7 +32,12 @@ pnpm check
 
 ### 3. 打安装包（自动复制到工作区根目录）
 
+**打包前先退出正在运行的抹茶泡芙。** 构建会覆盖 `target/release/matcha_puff.exe`，
+进程还开着时报 `failed to remove file ... (os error 5)`，整个打包直接失败。
+确认没有进程后启动打包（不能靠任务管理器点，要用 `Stop-Process` / `taskkill` 确认）：
+
 ```powershell
+Get-Process matcha_puff -ErrorAction SilentlyContinue | Stop-Process -Force
 pnpm desktop:bundle
 ```
 

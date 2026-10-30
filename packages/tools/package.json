@@ -1,6 +1,6 @@
 {
   "name": "@matcha-puff/tools",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "description": "抹茶泡芙 · 内置工具插件集合",

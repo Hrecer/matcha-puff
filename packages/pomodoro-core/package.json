@@ -1,6 +1,6 @@
 {
   "name": "@matcha-puff/pomodoro-core",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "description": "抹茶泡芙 · 专注模式的领域逻辑（纯函数，无 IO）",
