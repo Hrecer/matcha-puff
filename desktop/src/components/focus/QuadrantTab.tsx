@@ -118,14 +118,12 @@ export function QuadrantTab({ onStart }: { onStart: (task: TaskRef, minutes: num
     [leaves, terms],
   )
 
+  // 四象限只放「今天该做、还没做」的：做完的习惯从这里消失，回到四象限就没有它的位置了
   const { dueHabits, pendingHabits, doneHabitCount } = useMemo(() => {
     const due = habits.filter((item) => item.due)
-    const pending = due.filter(
-      (node) =>
-        !node.logs.some((log) => log.success && startOfLocalDay(log.time) === today),
-    )
+    const pending = habits.filter((item) => item.state === 'pending')
     return { dueHabits: due, pendingHabits: pending, doneHabitCount: due.length - pending.length }
-  }, [habits, today])
+  }, [habits])
 
   const visibleHabits = useMemo(
     () =>

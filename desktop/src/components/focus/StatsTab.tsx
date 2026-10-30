@@ -199,9 +199,7 @@ export function StatsTab() {
   })
   const doneTasksToday = todayTasks.filter(({ node }) => node.complete).length
   const dueHabitsToday = habits.filter((node) => node.due)
-  const doneHabitsToday = dueHabitsToday.filter((node) =>
-    node.logs.some((log) => log.success && log.time >= dayStartMs && log.time < dayEndMs),
-  ).length
+  const doneHabitsToday = dueHabitsToday.filter((node) => node.state === 'done').length
   const taskTotal = todayTasks.length
   const habitTotal = dueHabitsToday.length
   const doneItems = doneTasksToday + doneHabitsToday

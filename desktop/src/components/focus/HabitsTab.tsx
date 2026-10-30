@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUpToLine, BarChart3, GripVertical, Pencil, Play, Plus, Repeat, RotateCcw, SearchX, Trash2 } from 'lucide-react'
+import { ArrowUpToLine, BarChart3, Check, GripVertical, Pencil, Play, Plus, Repeat, RotateCcw, SearchX, Trash2 } from 'lucide-react'
 import type { Habit, HabitCycle, TaskRef } from '@matcha-puff/pomodoro-core'
 import {
   HABIT_CYCLE_LABELS,
@@ -206,10 +206,9 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
         if (durationFilter === 'xlong' && minutes <= 60) return false
       }
 
-      const doneToday = node.logs.some((log) => log.success && log.time >= todayStart)
       if (statusFilter === 'due' && !node.due) return false
-      if (statusFilter === 'done' && !doneToday) return false
-      if (statusFilter === 'pending' && (!node.due || doneToday)) return false
+      if (statusFilter === 'done' && node.state !== 'done') return false
+      if (statusFilter === 'pending' && node.state !== 'pending') return false
       if (statusFilter === 'off' && node.due) return false
 
       const lastSuccess = node.logs.find((log) => log.success)?.time ?? 0
@@ -661,10 +660,7 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
   )
 
   const dueCount = habits.filter((item) => item.due).length
-  const analysisDoneToday =
-    analysis?.logs.some(
-      (log) => log.success && startOfLocalDay(log.time) === startOfLocalDay(Date.now()),
-    ) ?? false
+  const analysisDoneToday = (analysis?.doneToday ?? 0) > 0
   const analysisFrom = analysisDoneToday
     ? new Date(startOfLocalDay(Date.now()) + DAY_MS)
     : new Date()
@@ -673,15 +669,24 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
     ? habitCountdownText(analysis.habit, analysisFrom, dayContextOf)
     : null
 
-  /** 今天该做的按当前相对顺序稳定地挪到最前，其余保持原顺序 */
+  /**
+   * 今日置顶：未完成 → 今日已完成 → 今天不用做。
+   *
+   * 组内保持当前的相对顺序，所以反复点也不会把顺序搅乱；
+   * 做完的习惯不会消失（卡片要留着看标识），只是沉到未完成的后面。
+   */
   const pinDueToTop = useCallback(() => {
     if (dueCount === 0) return
-    const due: string[] = []
-    const rest: string[] = []
+    const pending: string[] = []
+    const done: string[] = []
+    const off: string[] = []
     for (const id of ids) {
-      ;(byId.get(id)?.due ? due : rest).push(id)
+      const node = byId.get(id)
+      if (node?.state === 'pending') pending.push(id)
+      else if (node?.state === 'done') done.push(id)
+      else off.push(id)
     }
-    const next = [...due, ...rest]
+    const next = [...pending, ...done, ...off]
     const changed = next.some((id, index) => id !== ids[index])
     if (changed) void reorderHabits(next)
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
@@ -746,7 +751,7 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
             variant="outline"
             onClick={pinDueToTop}
             disabled={dueCount === 0}
-            aria-label="把今天该做的习惯移到最上面"
+            aria-label="按未完成、已完成、今天不用做的顺序排列"
           >
             <ArrowUpToLine className="size-3.5" aria-hidden />
             今日置顶
@@ -1013,7 +1018,7 @@ const HabitCard = memo(function HabitCard({
   /** 键盘排序：方向键挪一格 */
   onMove: (node: HabitNode, delta: number) => void
 }) {
-  const { habit, due, count, lastTime } = node
+  const { habit, due, state, doneToday, count, lastTime } = node
   const scheduleLabel = habitScheduleLabel(habit)
   const countdown = habitCountdownText(habit, new Date(), dayContextOf)
   const quadrant = quadrantMetaOf(habit.quadrant)
@@ -1073,7 +1078,22 @@ const HabitCard = memo(function HabitCard({
             />
             <h3 className="min-w-0 truncate text-[13px] font-semibold text-foreground">{habit.name}</h3>
           </div>
+          {/* 第二行最左就是今日状态：不占标题行，也不额外占一行。
+              今天不用做的（灰色）不给标识，只有该做没做 / 已经做过才有。 */}
           <div className="mt-0.5 flex flex-wrap items-center gap-1">
+            {state === 'done' ? (
+              <span
+                title={doneToday > 1 ? `今天已完成 ${doneToday} 次` : '今天已完成'}
+                className="flex h-[18px] shrink-0 items-center gap-0.5 rounded-[4px] bg-success px-1.5 text-[11px] font-medium leading-[18px] text-success-foreground"
+              >
+                <Check className="size-2.5" strokeWidth={3} aria-hidden />
+                已完成
+              </span>
+            ) : state === 'pending' ? (
+              <span className="flex h-[18px] shrink-0 items-center rounded-[4px] bg-[#c0392b] px-1.5 text-[11px] font-medium leading-[18px] text-[#fff7f5]">
+                未完成
+              </span>
+            ) : null}
             <Badge
               variant={due ? 'secondary' : 'outline'}
               className="h-[18px] shrink-0 whitespace-nowrap px-1.5 py-0 text-[11px] leading-[18px]"

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw } from 'lucide-react'
-import { createSummary, isHabitDue, statisticOfDay } from '@matcha-puff/pomodoro-core'
+import { createSummary, habitDayState, isHabitDue, statisticOfDay } from '@matcha-puff/pomodoro-core'
 import type { FocusSession, TaskNode } from '@matcha-puff/pomodoro-core'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -269,8 +269,23 @@ export function PomodoroCalendar() {
       sessions: sessionDayMap.get(key) ?? [],
       habits: {
         due: habitRows.filter((habit) => habit.due).length,
-        done: [...(habitDayMap.get(key)?.values() ?? [])].sort((a, b) => b.count - a.count),
-        pending: habitRows.filter((habit) => habit.due && habit.executed === 0),
+        // 和「已做」文案同一口径：只数该做且当天做过的，额外做的不进这个数
+        doneDue: habitRows.filter((habit) => habitDayState(habit.due, habit.executed) === 'done')
+          .length,
+        // 当天的执行记录仍全量列出：先列当天该做的，再列额外做的，组内按次数降序
+        done: habitRows
+          .filter((habit) => habit.executed > 0)
+          .sort((a, b) => {
+            if (a.due !== b.due) return a.due ? -1 : 1
+            return b.executed - a.executed
+          })
+          .map((habit) => ({
+            id: habit.id,
+            name: habit.name,
+            count: habit.executed,
+            extra: !habit.due,
+          })),
+        pending: habitRows.filter((habit) => habitDayState(habit.due, habit.executed) === 'pending'),
       },
       planGroups: groupPlans(plans),
       planDone: plans.filter((plan) => plan.complete).length,
@@ -525,9 +540,17 @@ export function PomodoroCalendar() {
       })
     : []
   const dueHabits = selectedHabits.filter((habit) => habit.due)
-  const pendingHabits = dueHabits.filter((habit) => habit.executed === 0)
+  const pendingHabits = selectedHabits.filter(
+    (habit) => habitDayState(habit.due, habit.executed) === 'pending',
+  )
+  // 当天的执行记录：先列当天该做的，再列额外做的，组内按次数降序（口径与日视图一致）
   const executedHabits = selected
-    ? [...(habitDayMap.get(selected)?.values() ?? [])].sort((a, b) => b.count - a.count)
+    ? selectedHabits
+        .filter((habit) => habit.executed > 0)
+        .sort((a, b) => {
+          if (a.due !== b.due) return a.due ? -1 : 1
+          return b.executed - a.executed
+        })
     : []
   const selectedHoliday = selectedDate ? holidayOf(selectedDate) : null
   // 弹窗里的条目跳转：先关弹窗再切页签，否则切了页签它还浮在上面
@@ -1071,7 +1094,8 @@ export function PomodoroCalendar() {
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-[12px] font-semibold text-foreground">习惯</p>
                   <p className="text-[10.5px] text-muted-foreground">
-                    该做 {dueHabits.length} 个 · 已做 {dueHabits.filter((habit) => habit.executed > 0).length} 个
+                    该做 {dueHabits.length} 个 · 已做{' '}
+                    {dueHabits.filter((habit) => habitDayState(habit.due, habit.executed) === 'done').length} 个
                   </p>
                 </div>
                 {pendingHabits.length > 0 ? (
@@ -1091,21 +1115,46 @@ export function PomodoroCalendar() {
                 ) : null}
                 {executedHabits.length > 0 ? (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {executedHabits.map((habit) => (
-                      <button
-                        key={habit.id}
-                        type="button"
-                        onClick={() => jumpFromDialog('habit', habit.id)}
-                        title={`打开习惯：${habit.name}`}
-                        className="flex max-w-full cursor-pointer items-center gap-1.5 rounded-md bg-primary/[0.09] px-2 py-1 text-[11px] text-foreground outline-none transition-colors hover:bg-primary/[0.16] focus-visible:ring-2 focus-visible:ring-primary/40"
-                      >
-                        <Check className="size-3 shrink-0 text-primary" aria-hidden />
-                        <span className="truncate">{habit.name}</span>
-                        <span className="shrink-0 rounded-full bg-primary/15 px-1.5 font-mono text-[9.5px] tabular-nums text-primary">
-                          ×{habit.count}
-                        </span>
-                      </button>
-                    ))}
+                    {executedHabits.map((habit) => {
+                      const extra = !habit.due
+                      return (
+                        <button
+                          key={habit.id}
+                          type="button"
+                          onClick={() => jumpFromDialog('habit', habit.id)}
+                          title={
+                            extra
+                              ? `打开习惯：${habit.name}（当天不在执行日，额外完成 ${habit.executed} 次）`
+                              : `打开习惯：${habit.name}`
+                          }
+                          className={cn(
+                            'flex max-w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[11px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40',
+                            extra
+                              ? 'border border-dashed border-foreground/20 text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+                              : 'bg-primary/[0.09] text-foreground hover:bg-primary/[0.16]',
+                          )}
+                        >
+                          <Check
+                            className={cn(
+                              'size-3 shrink-0',
+                              extra ? 'text-muted-foreground/70' : 'text-primary',
+                            )}
+                            aria-hidden
+                          />
+                          <span className="truncate">{habit.name}</span>
+                          <span
+                            className={cn(
+                              'shrink-0 rounded-full px-1.5 font-mono text-[9.5px] tabular-nums',
+                              extra
+                                ? 'bg-foreground/8 text-muted-foreground'
+                                : 'bg-primary/15 text-primary',
+                            )}
+                          >
+                            ×{habit.executed}
+                          </span>
+                        </button>
+                      )
+                    })}
                   </div>
                 ) : null}
               </section>

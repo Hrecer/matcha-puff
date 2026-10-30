@@ -118,6 +118,38 @@ export function habitLogsOf(logs: readonly HabitLog[], habitId: string): HabitLo
   return logs.filter((log) => log.habit === habitId).sort((a, b) => b.time - a.time)
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * 某一天内成功完成的次数：区间是 `[dayStart, dayEnd)`。
+ * 只认 success 的记录 —— 开始后中断的占位记录不算执行。
+ */
+export function habitSuccessCountOn(
+  logs: readonly HabitLog[],
+  habitId: string,
+  dayStart: number,
+  dayEnd: number = dayStart + DAY_MS,
+): number {
+  return logs.filter(
+    (log) => log.habit === habitId && log.success && log.time >= dayStart && log.time < dayEnd,
+  ).length
+}
+
+/** 习惯在某一天的三态：已完成 / 该做没做 / 今天不用做 */
+export type HabitDayState = 'done' | 'pending' | 'off'
+
+/**
+ * 习惯在一天里的状态。全应用只此一处判断，卡片标识、筛选、四象限、日历都走它，
+ * 免得「今日已完成」和「未完成」两套口径各自漂移。
+ *
+ * 今天不用做的一律是 off：即使当天额外做了一次，也不进「已完成」——
+ * 那个筛选回答的是「今天的任务完成了没有」。
+ */
+export function habitDayState(due: boolean, doneCount: number): HabitDayState {
+  if (!due) return 'off'
+  return doneCount > 0 ? 'done' : 'pending'
+}
+
 /** 执行次数只算完成的那一刻；开始后中断的记录是 false，不计 */
 export function completedHabitCount(logs: readonly HabitLog[], habitId: string): number {
   return logs.filter((log) => log.habit === habitId && log.success).length

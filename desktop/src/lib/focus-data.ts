@@ -13,6 +13,8 @@ import {
   canMoveTask,
   descendantIds,
   flattenTaskTree,
+  habitDayState,
+  habitSuccessCountOn,
   isHabitDue,
   moveTask,
   nextOrder,
@@ -31,6 +33,7 @@ import type {
   FocusSession,
   Habit,
   HabitCycle,
+  HabitDayState,
   HabitLog,
   InboxRecord,
   SubtaskDraft,
@@ -47,6 +50,10 @@ export { dayContextOf, ensureHolidayYear } from '@/lib/workday'
 export interface HabitNode {
   habit: Habit
   due: boolean
+  /** 今日状态：done 已完成 / pending 未完成 / off 今天不用做 */
+  state: HabitDayState
+  /** 今日成功完成的次数（中断的占位记录不算） */
+  doneToday: number
   logs: HabitLog[]
   /** 完成次数（开始时写的占位记录是 success=false，不计） */
   count: number
@@ -132,11 +139,16 @@ export function subtaskViewOf(node: TaskNode): SubtaskDraft {
 
 function buildHabitNodes(habits: Habit[], logs: HabitLog[], now: Date): HabitNode[] {
   const day = dayContextOf(now)
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   return habits.map((habit) => {
     const own = logs.filter((log) => log.habit === habit.id).sort((a, b) => b.time - a.time)
+    const due = isHabitDue(habit, now, day)
+    const doneToday = habitSuccessCountOn(own, habit.id, dayStart)
     return {
       habit,
-      due: isHabitDue(habit, now, day),
+      due,
+      state: habitDayState(due, doneToday),
+      doneToday,
       logs: own,
       count: own.filter((log) => log.success).length,
       lastTime: own[0]?.time ?? 0,

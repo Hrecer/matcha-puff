@@ -30,7 +30,10 @@ export interface DayDetail {
   sessions: FocusSession[]
   habits: {
     due: number
-    done: { id: string; name: string; count: number }[]
+    /** 该做且当天做过的数量：和上面「已做」同一个口径，额外做的不算进来 */
+    doneDue: number
+    /** 当天所有成功执行过的习惯；extra = 当天本来不用做、但还是做了 */
+    done: { id: string; name: string; count: number; extra: boolean }[]
     pending: { id: string; name: string }[]
   }
   planGroups: { rootId: string; rootTitle: string; items: PlanEntry[] }[]
@@ -133,7 +136,7 @@ export function DayBoard({ detail }: { detail: DayDetail }) {
 
         {/* 习惯与「时间分布」固定同高：内容多时卡内滚动 */}
         <section className={cn(CARD, 'flex min-h-0 flex-col')}>
-          <SectionTitle trailing={`该做 ${habits.due} · 已做 ${habits.done.length}`}>习惯</SectionTitle>
+          <SectionTitle trailing={`该做 ${habits.due} · 已做 ${habits.doneDue}`}>习惯</SectionTitle>
           {habits.due === 0 && habits.done.length === 0 ? (
             <p className="mt-1.5 text-[10.5px] text-muted-foreground/70">这一天没有要到期的习惯。</p>
           ) : (
@@ -156,12 +159,32 @@ export function DayBoard({ detail }: { detail: DayDetail }) {
                   key={habit.id}
                   type="button"
                   onClick={() => detail.onJumpHabit(habit.id)}
-                  title={`打开习惯：${habit.name}`}
-                  className="flex max-w-full items-center gap-1 rounded-md bg-primary/[0.09] px-1.5 py-0.5 text-[10.5px] text-foreground outline-none transition-colors hover:bg-primary/[0.16] focus-visible:ring-2 focus-visible:ring-primary/40"
+                  title={
+                    habit.extra
+                      ? `打开习惯：${habit.name}（当天不在执行日，额外完成 ${habit.count} 次）`
+                      : `打开习惯：${habit.name}`
+                  }
+                  className={cn(
+                    'flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40',
+                    habit.extra
+                      ? 'border border-dashed border-foreground/20 text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+                      : 'bg-primary/[0.09] text-foreground hover:bg-primary/[0.16]',
+                  )}
                 >
-                  <Check className="size-2.5 shrink-0 text-primary" aria-hidden />
+                  <Check
+                    className={cn(
+                      'size-2.5 shrink-0',
+                      habit.extra ? 'text-muted-foreground/70' : 'text-primary',
+                    )}
+                    aria-hidden
+                  />
                   <span className="truncate">{habit.name}</span>
-                  <span className="shrink-0 rounded-full bg-primary/15 px-1 font-mono text-[9px] tabular-nums text-primary">
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-1 font-mono text-[9px] tabular-nums',
+                      habit.extra ? 'bg-foreground/8 text-muted-foreground' : 'bg-primary/15 text-primary',
+                    )}
+                  >
                     ×{habit.count}
                   </span>
                 </button>
