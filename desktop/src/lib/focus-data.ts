@@ -9,17 +9,29 @@
  */
 import { useSyncExternalStore } from 'react'
 import {
+  addDayKey,
+  buildHabitDayRows,
   buildTaskTree,
   canMoveTask,
+  dayKeyToDate,
   descendantIds,
   flattenTaskTree,
+  habitCreatedDay,
   habitDayState,
-  habitSuccessCountOn,
+  habitDayView,
+  habitLogDay,
+  habitRecentDays,
+  habitStats,
   isHabitDue,
+  localDayKey,
   moveTask,
   nextOrder,
+  normalizeHabitData,
+  recomputeHabitDayRows,
   removeTaskCascade,
+  setHabitDayExcused,
   setTaskDone,
+  settleHabitDays,
 } from '@matcha-puff/pomodoro-core'
 import {
   dayContextOf,
@@ -33,8 +45,12 @@ import type {
   FocusSession,
   Habit,
   HabitCycle,
+  HabitDayRecord,
   HabitDayState,
+  HabitDayView,
   HabitLog,
+  HabitSettle,
+  HabitStats,
   InboxRecord,
   SubtaskDraft,
   Summary,
@@ -55,9 +71,17 @@ export interface HabitNode {
   /** 今日成功完成的次数（中断的占位记录不算） */
   doneToday: number
   logs: HabitLog[]
-  /** 完成次数（开始时写的占位记录是 success=false，不计） */
+  /** 完成次数（focus，开始时写的占位记录是 success=false，不计） */
   count: number
   lastTime: number
+  /** 该习惯的全部日记录 */
+  days: HabitDayRecord[]
+  /** 今天的日视图 */
+  today: HabitDayView
+  /** 最近 7 天，从旧到新 */
+  recent: HabitDayView[]
+  /** 汇总指标：完成天数、专注次数、连续等 */
+  stats: HabitStats
 }
 
 interface FocusDataState {
@@ -72,6 +96,9 @@ interface FocusDataState {
   summary: Summary | null
   /** 会话级明细：日历的时间轴与按任务筛选专注都要用 */
   sessions: FocusSession[]
+  /** 每天账：卡片、月历、筛选、日视图共用 */
+  habitDays: HabitDayRecord[]
+  habitSettle: HabitSettle
 }
 
 const EMPTY: FocusDataState = {
@@ -83,6 +110,8 @@ const EMPTY: FocusDataState = {
   statistics: [],
   summary: null,
   sessions: [],
+  habitDays: [],
+  habitSettle: { lastSettledDay: '', version: 0 },
 }
 
 let state: FocusDataState = EMPTY
@@ -137,21 +166,40 @@ export function subtaskViewOf(node: TaskNode): SubtaskDraft {
   return { ...topTaskViewOf(node), futureId: node.task.parentId ?? '' }
 }
 
-function buildHabitNodes(habits: Habit[], logs: HabitLog[], now: Date): HabitNode[] {
-  const day = dayContextOf(now)
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+function buildHabitNodes(
+  habits: Habit[],
+  logs: HabitLog[],
+  dayRows: HabitDayRecord[],
+  now: Date,
+): HabitNode[] {
   return habits.map((habit) => {
     const own = logs.filter((log) => log.habit === habit.id).sort((a, b) => b.time - a.time)
-    const due = isHabitDue(habit, now, day)
-    const doneToday = habitSuccessCountOn(own, habit.id, dayStart)
+    const ownRows = dayRows.filter((row) => row.habit === habit.id)
+    const stats = habitStats({ habit, rows: ownRows, logs: own, now, dayContextOf })
+    const today = habitDayView({
+      habit,
+      day: localDayKey(now),
+      rows: ownRows,
+      logs: own,
+      now,
+      dayContextOf,
+    })
+    const due = today.due
+    const doneToday = today.focusCount + today.manualCount
+    // 今天请假不显示成“未完成”；卡片用 today.state 单独画请假徽章
+    const state = today.state === 'excused' ? 'off' : habitDayState(due, doneToday)
     return {
       habit,
       due,
-      state: habitDayState(due, doneToday),
+      state,
       doneToday,
       logs: own,
-      count: own.filter((log) => log.success).length,
+      count: stats.focusCount,
       lastTime: own[0]?.time ?? 0,
+      days: ownRows,
+      today,
+      recent: habitRecentDays({ habit, rows: ownRows, logs: own, now, dayContextOf, count: 7 }),
+      stats,
     }
   })
 }
@@ -162,27 +210,123 @@ subscribeHolidays(() => invalidateFocusData())
 export async function loadFocusData(): Promise<void> {
   if (loading) return loading
   loading = (async () => {
-    const [tasks, habits, logs, inbox, statistics, summary, sessions] = await Promise.all([
-      repo.loadTasks(),
-      repo.loadHabits(),
-      repo.loadHabitLogs(),
-      repo.loadInbox(),
-      repo.loadStatistics(),
-      repo.loadSummary(),
-      repo.loadSessions(),
-      // 先把本地那份节假日表读进来（读不到就是空表），判断到期时才有依据
-      loadHolidays(),
-    ])
+    const now = new Date()
+    let [tasks, habits, logs, dayRows, settle, inbox, statistics, summary, sessions] =
+      await Promise.all([
+        repo.loadTasks(),
+        repo.loadHabits(),
+        repo.loadHabitLogs(),
+        repo.loadHabitDays(),
+        repo.loadHabitSettle(),
+        repo.loadInbox(),
+        repo.loadStatistics(),
+        repo.loadSummary(),
+        repo.loadSessions(),
+        // 先把本地那份节假日表读进来（读不到就是空表），判断到期时才有依据
+        loadHolidays(),
+      ])
+
+    // 首次升级：补日志字段、生成完成行、回填最近 30 天缺失
+    if (settle.version < 1) {
+      const normalized = normalizeHabitData(habits, logs, now)
+      habits = normalized.habits
+      logs = normalized.logs
+      dayRows = buildHabitDayRows({
+        habits,
+        logs,
+        rows: dayRows,
+        now,
+        dayContextOf,
+        backfillDays: 30,
+      })
+      settle = {
+        lastSettledDay: addDayKey(localDayKey(now), -1),
+        version: 1,
+        backfillDays: 30,
+      }
+      await Promise.all([
+        repo.saveHabits(habits),
+        repo.saveHabitLogs(logs),
+        repo.saveHabitDays(dayRows),
+        repo.saveHabitSettle(settle),
+      ])
+    }
+
+    // 历史补齐：过去只要按现在的规则判定“该做”，没有记录就记成未完成。
+    // 不再受习惯创建日/结算游标影响——每天要做的习惯，前面的空档也必须算数。
+    const backfilled = buildHabitDayRows({
+      habits,
+      logs,
+      rows: dayRows,
+      now,
+      dayContextOf,
+      backfillDays: 366,
+      ignoreCreatedAt: true,
+    })
+    if (backfilled.length !== dayRows.length) {
+      dayRows = backfilled
+      await repo.saveHabitDays(dayRows)
+    }
+
+    // 每次加载都向前结算；正常只处理昨天一天
+    const settled = settleHabitDays({
+      habits,
+      logs,
+      rows: dayRows,
+      settle,
+      now,
+      dayContextOf,
+    })
+    if (settled.changed) {
+      dayRows = settled.rows
+      settle = settled.settle
+      await Promise.all([repo.saveHabitDays(dayRows), repo.saveHabitSettle(settle)])
+    } else if (settled.settle.lastSettledDay !== settle.lastSettledDay) {
+      settle = settled.settle
+      await repo.saveHabitSettle(settle)
+    }
+
+    // 今天不冻结：周期/节假日临时改了，今天按新规则重算；已完成仍保留为 done
+    const todayKey = localDayKey(now)
+    const todaySig = (rows: HabitDayRecord[]) =>
+      rows
+        .filter((row) => row.day === todayKey)
+        .map(
+          (row) =>
+            `${row.id}:${row.state}:${row.due ? 1 : 0}:${row.focusCount}:${row.manualCount}:${row.seconds}`,
+        )
+        .sort()
+        .join('|')
+    const beforeToday = todaySig(dayRows)
+    let reconciled = dayRows
+    for (const habit of habits) {
+      reconciled = recomputeHabitDayRows({
+        habit,
+        day: todayKey,
+        logs,
+        rows: reconciled,
+        now,
+        dayContextOf,
+        forceDue: true,
+      })
+    }
+    if (todaySig(reconciled) !== beforeToday) {
+      dayRows = reconciled
+      await repo.saveHabitDays(dayRows)
+    }
+
     const roots = buildTaskTree(tasks)
     emit({
       ready: true,
       roots,
-      habits: buildHabitNodes(habits, logs, new Date()),
-      holidayMissing: holidayMissingAt(new Date()),
+      habits: buildHabitNodes(habits, logs, dayRows, now),
+      holidayMissing: holidayMissingAt(now),
       inbox: [...inbox].sort((a, b) => b.time - a.time),
       statistics,
       summary,
       sessions,
+      habitDays: dayRows,
+      habitSettle: settle,
     })
     // 缺今年 / 明年的表就去补拉；失败或离线就静默留着，第二天再试
     void refreshHolidays()
@@ -360,20 +504,29 @@ export async function moveTaskTo(
 }
 
 export function newHabit(name: string, desc: string, cycle: HabitCycle, time: number): Habit {
+  const now = Date.now()
   return {
     id: uid('habit'),
     name: name.trim(),
     desc: desc.trim(),
     cycle,
     time: Math.max(1, Math.round(time)),
-    lastTime: Date.now(),
+    lastTime: now,
+    createdAt: now,
   }
 }
 
 export async function saveHabit(habit: Habit): Promise<void> {
   const habits = await repo.loadHabits()
   const exists = habits.some((item) => item.id === habit.id)
-  await repo.saveHabits(exists ? habits.map((item) => (item.id === habit.id ? habit : item)) : [...habits, habit])
+  const next = exists
+    ? habits.map((item) =>
+        item.id === habit.id
+          ? { ...habit, createdAt: item.createdAt ?? habit.createdAt ?? item.lastTime }
+          : item,
+      )
+    : [...habits, habit]
+  await repo.saveHabits(next)
   invalidateFocusData()
 }
 
@@ -396,9 +549,16 @@ export async function reorderHabits(ids: readonly string[]): Promise<void> {
 }
 
 export async function removeHabit(id: string): Promise<void> {
-  const [habits, logs] = await Promise.all([repo.loadHabits(), repo.loadHabitLogs()])
-  await repo.saveHabits(habits.filter((item) => item.id !== id))
-  await repo.saveHabitLogs(logs.filter((log) => log.habit !== id))
+  const [habits, logs, days] = await Promise.all([
+    repo.loadHabits(),
+    repo.loadHabitLogs(),
+    repo.loadHabitDays(),
+  ])
+  await Promise.all([
+    repo.saveHabits(habits.filter((item) => item.id !== id)),
+    repo.saveHabitLogs(logs.filter((log) => log.habit !== id)),
+    repo.saveHabitDays(days.filter((row) => row.habit !== id)),
+  ])
   invalidateFocusData()
 }
 
@@ -473,8 +633,266 @@ export async function beginHabitLog(habitId: string): Promise<string> {
     (log) => log.success || now - log.time < 24 * 60 * 60 * 1000,
   )
   const id = uid('log')
-  const entry: HabitLog = { id, habit: habitId, time: now, success: false }
+  const entry: HabitLog = {
+    id,
+    habit: habitId,
+    day: localDayKey(now),
+    time: now,
+    success: false,
+    source: 'focus',
+  }
   await repo.saveHabitLogs([...logs, entry])
   invalidateFocusData()
   return id
+}
+
+/* ------------------------------------------------------------------ */
+/* 每天账写入：所有会改变某天完成情况的操作都走 recomputeHabitDayRows */
+/* ------------------------------------------------------------------ */
+
+async function writeHabitDay(
+  habit: Habit,
+  day: string,
+  logs: readonly HabitLog[],
+  now = new Date(),
+): Promise<void> {
+  const rows = await repo.loadHabitDays()
+  const next = recomputeHabitDayRows({ habit, day, logs, rows, now, dayContextOf })
+  await repo.saveHabitDays(next)
+}
+
+/**
+ * 番茄完成时同步当天日记录。
+ * 由 focus-store 在日志落库后调用，传入刚写好的日志数组，避免重复读。
+ */
+export async function syncHabitDayFromLogs(
+  habitId: string,
+  day: string,
+  logs: readonly HabitLog[],
+): Promise<void> {
+  const habits = await repo.loadHabits()
+  const habit = habits.find((item) => item.id === habitId)
+  if (!habit) return
+  await writeHabitDay(habit, day, logs)
+  invalidateFocusData()
+}
+
+/**
+ * 手动打卡 / 补记：今天只允许该做日；过去只允许补该做日。
+ * 同一天已经有成功记录时直接返回，保证幂等。
+ */
+export async function manualCheckHabit(habitId: string, day?: string): Promise<boolean> {
+  const now = new Date()
+  const target = day ?? localDayKey(now)
+  const today = localDayKey(now)
+  if (target > today) return false
+
+  const [habits, logs, dayRows] = await Promise.all([
+    repo.loadHabits(),
+    repo.loadHabitLogs(),
+    repo.loadHabitDays(),
+  ])
+  const habit = habits.find((item) => item.id === habitId)
+  if (!habit) return false
+  const targetDate = dayKeyToDate(target)
+  const dayRow = dayRows.find((row) => row.habit === habitId && row.day === target)
+  if (dayRow?.state === 'excused') return false
+  const due = dayRow?.due ?? isHabitDue(habit, targetDate, dayContextOf(targetDate))
+  if (!due) return false
+
+  const exists = logs.some(
+    (log) => log.habit === habitId && log.success && habitLogDay(log) === target,
+  )
+  if (exists) return true
+
+  const entry: HabitLog = {
+    id: uid('log'),
+    habit: habitId,
+    day: target,
+    // 补记的 time 落在目标日中午：明细按历史时刻排，不会把“上次执行”顶到今天
+    time: target === today ? Date.now() : dayKeyToDate(target).getTime() + 12 * 60 * 60 * 1000,
+    success: true,
+    source: 'manual',
+    backfilled: target !== today,
+  }
+  const next = [...logs, entry]
+  await repo.saveHabitLogs(next)
+  await writeHabitDay(habit, target, next, now)
+  invalidateFocusData()
+  return true
+}
+
+/**
+ * 单日临时加做（今天）：把本应休息的一天标成“该做”，留下 pending 行。
+ * 之后可以用卡片 ✓ / ▶ 完成；不完成则在 0 点日结成 missed。
+ */
+export async function markHabitDayDue(habitId: string, day: string): Promise<boolean> {
+  const now = new Date()
+  const today = localDayKey(now)
+  if (day !== today) return false
+
+  const [habits, logs, rows] = await Promise.all([
+    repo.loadHabits(),
+    repo.loadHabitLogs(),
+    repo.loadHabitDays(),
+  ])
+  const habit = habits.find((item) => item.id === habitId)
+  if (!habit) return false
+  if (day < habitCreatedDay(habit, now)) return false
+  if (isHabitDue(habit, dayKeyToDate(day), dayContextOf(dayKeyToDate(day)))) {
+    // 本来就是该做日，不需要覆盖
+    return true
+  }
+
+  const next = recomputeHabitDayRows({
+    habit,
+    day,
+    logs,
+    rows,
+    now,
+    dayContextOf,
+    overrideDue: true,
+    manualDue: true,
+  })
+  await repo.saveHabitDays(next)
+  invalidateFocusData()
+  return true
+}
+
+/**
+ * 单日临时加做并补记（过去）：把休息日标成该做，同时写一条手动完成。
+ * 用于“那天其实做了，但本来排的是休息”。
+ */
+export async function overrideHabitDayDone(habitId: string, day: string): Promise<boolean> {
+  const now = new Date()
+  const today = localDayKey(now)
+  if (day >= today) return false
+
+  const [habits, logs, rows] = await Promise.all([
+    repo.loadHabits(),
+    repo.loadHabitLogs(),
+    repo.loadHabitDays(),
+  ])
+  const habit = habits.find((item) => item.id === habitId)
+  if (!habit) return false
+
+  const existingLog = logs.some(
+    (log) => log.habit === habitId && log.success && habitLogDay(log) === day,
+  )
+  let nextLogs: HabitLog[] = [...logs]
+  if (!existingLog) {
+    nextLogs.push({
+      id: uid('log'),
+      habit: habitId,
+      day,
+      time: dayKeyToDate(day).getTime() + 12 * 60 * 60 * 1000,
+      success: true,
+      source: 'manual',
+      backfilled: true,
+    })
+  }
+  if (!existingLog) await repo.saveHabitLogs(nextLogs)
+
+  const nextRows = recomputeHabitDayRows({
+    habit,
+    day,
+    logs: nextLogs,
+    rows,
+    now,
+    dayContextOf,
+    overrideDue: true,
+    manualDue: true,
+  })
+  await repo.saveHabitDays(nextRows)
+  invalidateFocusData()
+  return true
+}
+
+/** 取消临时加做：删掉该天 manual 打卡与覆盖行，回到原本的休息日 */
+export async function clearHabitDayOverride(habitId: string, day: string): Promise<boolean> {
+  const [habits, logs, rows] = await Promise.all([
+    repo.loadHabits(),
+    repo.loadHabitLogs(),
+    repo.loadHabitDays(),
+  ])
+  const habit = habits.find((item) => item.id === habitId)
+  if (!habit) return false
+  const target = rows.find((row) => row.habit === habitId && row.day === day)
+  if (!target?.manualDue) return false
+
+  const remainingLogs = logs.filter(
+    (log) =>
+      !(
+        log.habit === habitId &&
+        log.success &&
+        habitLogDay(log) === day &&
+        (log.source ?? 'focus') === 'manual'
+      ),
+  )
+  if (remainingLogs.length !== logs.length) await repo.saveHabitLogs(remainingLogs)
+
+  const withoutRow = rows.filter((row) => !(row.habit === habitId && row.day === day))
+  const nextRows = recomputeHabitDayRows({
+    habit,
+    day,
+    logs: remainingLogs,
+    rows: withoutRow,
+    now: new Date(),
+    dayContextOf,
+  })
+  await repo.saveHabitDays(nextRows)
+  invalidateFocusData()
+  return true
+}
+
+/** 请假 / 取消请假 */
+export async function excuseHabitDay(habitId: string, day: string, excused: boolean): Promise<boolean> {
+  const [habits, rows] = await Promise.all([repo.loadHabits(), repo.loadHabitDays()])
+  const habit = habits.find((item) => item.id === habitId)
+  if (!habit) return false
+  const next = setHabitDayExcused({
+    rows,
+    habit,
+    day,
+    excused,
+    now: new Date(),
+    dayContextOf,
+  })
+  await repo.saveHabitDays(next)
+  invalidateFocusData()
+  return true
+}
+
+/** 撤销当天手动打卡：只删 manual 成功日志，focus 不动 */
+export async function undoHabitManual(habitId: string, day: string): Promise<boolean> {
+  const [habits, logs] = await Promise.all([repo.loadHabits(), repo.loadHabitLogs()])
+  const habit = habits.find((item) => item.id === habitId)
+  if (!habit) return false
+  const remaining = logs.filter(
+    (log) =>
+      !(
+        log.habit === habitId &&
+        log.success &&
+        habitLogDay(log) === day &&
+        (log.source ?? 'focus') === 'manual'
+      ),
+  )
+  if (remaining.length === logs.length) return false
+  await repo.saveHabitLogs(remaining)
+  await writeHabitDay(habit, day, remaining)
+  invalidateFocusData()
+  return true
+}
+
+/** 删除一条执行记录（专注或手动），并重算当天 */
+export async function deleteHabitLog(logId: string): Promise<boolean> {
+  const [habits, logs] = await Promise.all([repo.loadHabits(), repo.loadHabitLogs()])
+  const target = logs.find((log) => log.id === logId)
+  if (!target) return false
+  const habit = habits.find((item) => item.id === target.habit)
+  const remaining = logs.filter((log) => log.id !== logId)
+  await repo.saveHabitLogs(remaining)
+  if (habit) await writeHabitDay(habit, habitLogDay(target), remaining)
+  invalidateFocusData()
+  return true
 }

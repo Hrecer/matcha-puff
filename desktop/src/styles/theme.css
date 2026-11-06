@@ -228,6 +228,12 @@
   --color-success-foreground: var(--success-foreground);
   --color-success-bg: color-mix(in oklch, var(--success) 13%, transparent);
 
+  /* 四象限：每个象限只定义一种颜色，徽标底、标题文字、左条全部复用它 */
+  --color-q1: #e11d48;
+  --color-q2: #d97706;
+  --color-q3: #0284c7;
+  --color-q4: #8b8c84;
+
   --shadow-e1: var(--shadow-sm);
   --shadow-e2: var(--shadow-md);
   --shadow-e3: var(--shadow-lg);

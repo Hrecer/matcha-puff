@@ -120,7 +120,7 @@ export function QuadrantTab({ onStart }: { onStart: (task: TaskRef, minutes: num
 
   // 四象限只放「今天该做、还没做」的：做完的习惯从这里消失，回到四象限就没有它的位置了
   const { dueHabits, pendingHabits, doneHabitCount } = useMemo(() => {
-    const due = habits.filter((item) => item.due)
+    const due = habits.filter((item) => item.due && item.today.state !== 'excused')
     const pending = habits.filter((item) => item.state === 'pending')
     return { dueHabits: due, pendingHabits: pending, doneHabitCount: due.length - pending.length }
   }, [habits])
@@ -234,7 +234,7 @@ export function QuadrantTab({ onStart }: { onStart: (task: TaskRef, minutes: num
                           <div className="min-w-0 flex-1">
                             <div className="flex min-w-0 items-start gap-1.5">
                               <span
-                                className="mt-[7px] size-1.5 shrink-0 rounded-full border border-foreground/10"
+                                className="mt-[6px] size-[9px] shrink-0 rounded-full border border-foreground/10"
                                 style={{ background: displayTaskColor(habit.color) }}
                                 aria-hidden
                               />

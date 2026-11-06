@@ -4,6 +4,10 @@ export const DOC_KEYS = {
   ring: 'ring',
   habits: 'habits',
   habitList: 'habitList',
+  /** 每天账：HabitDayRecord[] */
+  habitDays: 'habitDays',
+  /** 日结游标：HabitSettle */
+  habitSettle: 'habitSettle',
   summary: 'summary',
   statistics: 'statistics',
   inbox: 'inbox',

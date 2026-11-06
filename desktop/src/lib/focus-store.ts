@@ -14,7 +14,9 @@ import {
   buildTaskTree,
   createSummary,
   flattenTaskTree,
+  habitLogDay,
   isSameDay,
+  localDayKey,
   nextRestKind,
   recordFinishedSession,
   resetToday,
@@ -34,7 +36,7 @@ import type {
 import * as api from '@/lib/focus-api'
 import * as repo from '@/lib/focus-repo'
 import { playNotify, syncPhaseAudio } from '@/lib/focus-audio'
-import { beginHabitLog, invalidateFocusData } from '@/lib/focus-data'
+import { beginHabitLog, invalidateFocusData, syncHabitDayFromLogs } from '@/lib/focus-data'
 import { toast } from '@/components/ui/toast'
 
 interface FocusStoreState {
@@ -371,15 +373,24 @@ async function markHabitSuccess(habitId: string, at: number): Promise<void> {
     return log.time > logs[found].time ? i : found
   }, -1)
   if (index >= 0) {
-    const next = logs.map((log, i) => (i === index ? { ...log, success: true } : log))
+    const target = logs[index]!
+    const day = target.day ?? localDayKey(target.time)
+    const next = logs.map((log, i) =>
+      i === index ? { ...log, success: true, day, source: 'focus' as const } : log,
+    )
     await repo.saveHabitLogs(next)
+    await syncHabitDayFromLogs(habitId, day, next)
     return
   }
   const entry: HabitLog = {
     id: `habit-${at}-${Math.random().toString(36).slice(2, 8)}`,
     habit: habitId,
+    day: localDayKey(at),
     time: at,
     success: true,
+    source: 'focus',
   }
-  await repo.saveHabitLogs([...logs, entry])
+  const next = [...logs, entry]
+  await repo.saveHabitLogs(next)
+  await syncHabitDayFromLogs(habitId, habitLogDay(entry), next)
 }

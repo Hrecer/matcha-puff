@@ -15,7 +15,9 @@ import type {
   DayStatistic,
   FocusSession,
   Habit,
+  HabitDayRecord,
   HabitLog,
+  HabitSettle,
   InboxRecord,
   PomodoroConfig,
   RingSettings,
@@ -74,6 +76,13 @@ export const saveHabits = (habits: Habit[]) => writeDoc(DOC_KEYS.habits, habits)
 
 export const loadHabitLogs = () => readDoc<HabitLog[]>(DOC_KEYS.habitList, [])
 export const saveHabitLogs = (logs: HabitLog[]) => writeDoc(DOC_KEYS.habitList, logs)
+
+export const loadHabitDays = () => readDoc<HabitDayRecord[]>(DOC_KEYS.habitDays, [])
+export const saveHabitDays = (rows: HabitDayRecord[]) => writeDoc(DOC_KEYS.habitDays, rows)
+
+export const loadHabitSettle = () =>
+  readDoc<HabitSettle>(DOC_KEYS.habitSettle, { lastSettledDay: '', version: 0 })
+export const saveHabitSettle = (settle: HabitSettle) => writeDoc(DOC_KEYS.habitSettle, settle)
 
 export const loadInbox = () => readDoc<InboxRecord[]>(DOC_KEYS.inbox, [])
 export const saveInbox = (records: InboxRecord[]) => writeDoc(DOC_KEYS.inbox, records)

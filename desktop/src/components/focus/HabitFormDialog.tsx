@@ -162,6 +162,11 @@ export function HabitFormDialog({
               </div>
             </Field>
           </div>
+          {editing ? (
+            <p className="-mt-1 px-1 text-[10px] leading-4 text-muted-foreground">
+              修改周期只影响今天及以后；已有历史记录不会被重算。
+            </p>
+          ) : null}
 
           {cycle === 'yearly' ? (
             <Field label="每年日期" htmlFor="focus-habit-anchor-month">

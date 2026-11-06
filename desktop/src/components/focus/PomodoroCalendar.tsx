@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw } from 'lucide-react'
-import { createSummary, habitDayState, isHabitDue, statisticOfDay } from '@matcha-puff/pomodoro-core'
-import type { FocusSession, TaskNode } from '@matcha-puff/pomodoro-core'
+import { createSummary, habitDayView, statisticOfDay } from '@matcha-puff/pomodoro-core'
+import type { FocusSession, HabitDayRecord, TaskNode } from '@matcha-puff/pomodoro-core'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -84,7 +84,7 @@ function groupPlans(plans: readonly PlanEntry[]) {
  * 看一段时间的分布用月视图，看某一天几点做了什么点进日视图。
  */
 export function PomodoroCalendar() {
-  const { statistics, summary, roots, habits, sessions: storedSessions } = useFocusData()
+  const { statistics, summary, roots, habits, habitDays, sessions: storedSessions } = useFocusData()
   // 热更可能复用旧状态对象，兜一层，避免 sessions 暂时是 undefined
   const sessions = storedSessions ?? []
   const now = new Date()
@@ -182,24 +182,16 @@ export function PomodoroCalendar() {
       ? displayTaskColor(habitColor.get(taskId))
       : colorOfRoot(rootOfTask.get(taskId) ?? taskId)
 
+  /** 每天账按日期分桶；卡片条、月格、日视图都从这里取，不再自己扫日志 */
   const habitDayMap = useMemo(() => {
-    const map = new Map<string, Map<string, { id: string; name: string; count: number }>>()
-    for (const node of habits) {
-      for (const log of node.logs) {
-        if (!log.success) continue
-        const key = keyOf(log.time)
-        let day = map.get(key)
-        if (!day) {
-          day = new Map()
-          map.set(key, day)
-        }
-        const row = day.get(node.habit.id) ?? { id: node.habit.id, name: node.habit.name, count: 0 }
-        row.count += 1
-        day.set(node.habit.id, row)
-      }
+    const map = new Map<string, HabitDayRecord[]>()
+    for (const row of habitDays) {
+      const list = map.get(row.day)
+      if (list) list.push(row)
+      else map.set(row.day, [row])
     }
     return map
-  }, [habits])
+  }, [habitDays])
 
   const sessionDayMap = useMemo(() => {
     const map = new Map<string, FocusSession[]>()
@@ -244,15 +236,23 @@ export function PomodoroCalendar() {
   const boardDetail = useMemo<DayDetail>(() => {
     const date = dayOf(dayCursor)
     const key = keyOf(date)
-    const context = dayContextOf(date)
     const plans = plansFor(key)
     const habitRows = habits.map((node) => {
-      const executed = habitDayMap.get(key)?.get(node.habit.id)?.count ?? 0
+      const row = node.days.find((item) => item.day === key)
+      const view = habitDayView({
+        habit: node.habit,
+        day: key,
+        rows: node.days,
+        logs: node.logs,
+        now,
+        dayContextOf,
+      })
       return {
         id: node.habit.id,
         name: node.habit.name,
-        due: isHabitDue(node.habit, date, context),
-        executed,
+        due: row ? row.due : key === todayKey ? view.due : false,
+        state: view.state,
+        executed: view.focusCount + view.manualCount,
       }
     })
     return {
@@ -268,13 +268,12 @@ export function PomodoroCalendar() {
       })),
       sessions: sessionDayMap.get(key) ?? [],
       habits: {
-        due: habitRows.filter((habit) => habit.due).length,
+        due: habitRows.filter((habit) => habit.due && habit.state !== 'excused').length,
         // 和「已做」文案同一口径：只数该做且当天做过的，额外做的不进这个数
-        doneDue: habitRows.filter((habit) => habitDayState(habit.due, habit.executed) === 'done')
-          .length,
+        doneDue: habitRows.filter((habit) => habit.due && habit.state === 'done').length,
         // 当天的执行记录仍全量列出：先列当天该做的，再列额外做的，组内按次数降序
         done: habitRows
-          .filter((habit) => habit.executed > 0)
+          .filter((habit) => habit.state === 'done')
           .sort((a, b) => {
             if (a.due !== b.due) return a.due ? -1 : 1
             return b.executed - a.executed
@@ -285,7 +284,8 @@ export function PomodoroCalendar() {
             count: habit.executed,
             extra: !habit.due,
           })),
-        pending: habitRows.filter((habit) => habitDayState(habit.due, habit.executed) === 'pending'),
+        pending: habitRows.filter((habit) => habit.state === 'pending'),
+        missed: habitRows.filter((habit) => habit.state === 'missed'),
       },
       planGroups: groupPlans(plans),
       planDone: plans.filter((plan) => plan.complete).length,
@@ -316,6 +316,31 @@ export function PomodoroCalendar() {
     const first = new Date(monthCursor.year, monthCursor.month, 1)
     const leading = (first.getDay() + 6) % 7
     const start = new Date(monthCursor.year, monthCursor.month, 1 - leading)
+
+    /** 某月格的习惯完成情况：只认日记录；今天补上尚未落库的待完成 */
+    const habitCountsOf = (key: string) => {
+      const allRows = habitDayMap.get(key) ?? []
+      const rows = allRows.filter((row) => row.due && row.state !== 'excused')
+      let due = rows.length
+      let done = rows.filter((row) => row.state === 'done').length
+      const missed = allRows.filter((row) => row.state === 'missed').length
+      if (key === todayKey) {
+        const represented = new Set(rows.map((row) => row.habit))
+        for (const node of habits) {
+          if (node.due && node.today.state !== 'excused' && !represented.has(node.habit.id)) {
+            due += 1
+          }
+        }
+        done = Math.max(
+          done,
+          habits.filter(
+            (node) => node.due && node.today.state !== 'excused' && node.state === 'done',
+          ).length,
+        )
+      }
+      return { due, done, missed }
+    }
+
     // 固定 6 行：不会因为月份周数不同而改变整体高度
     return Array.from({ length: 42 }, (_, index) => {
       const date = new Date(start)
@@ -331,10 +356,13 @@ export function PomodoroCalendar() {
           count: 0,
           seconds: 0,
           holiday: holidayOf(date),
-          habitCount: 0,
+          habitDue: 0,
+          habitDone: 0,
+          habitMissed: 0,
         }
       }
       const focus = focusOfDay(key)
+      const habitCounts = habitCountsOf(key)
       return {
         date,
         key,
@@ -343,10 +371,12 @@ export function PomodoroCalendar() {
         count: focus.count,
         seconds: focus.seconds,
         holiday: holidayOf(date),
-        habitCount: [...(habitDayMap.get(key)?.values() ?? [])].reduce((sum, row) => sum + row.count, 0),
+        habitDue: habitCounts.due,
+        habitDone: habitCounts.done,
+        habitMissed: habitCounts.missed,
       }
     })
-  }, [monthCursor, statistics, liveSummary, planMap, habitDayMap, now])
+  }, [monthCursor, statistics, liveSummary, planMap, habitDayMap, habits, todayKey, now])
 
   const monthTotal = useMemo(() => {
     const taskIds = new Set<string>()
@@ -519,7 +549,6 @@ export function PomodoroCalendar() {
   }
 
   const selectedDate = selected ? dateFromKey(selected) : null
-  const selectedContext = selectedDate ? dayContextOf(selectedDate) : null
   const selectedFocus = selected ? focusOfDay(selected) : { count: 0, seconds: 0 }
   const selectedTasks = selected ? focusTasksOf(selected) : []
   // 和日视图「时间分布」同一口径：按耗时降序、占比以当天总时长为分母
@@ -530,23 +559,31 @@ export function PomodoroCalendar() {
   const selectedGroups = useMemo(() => groupPlans(selectedPlans), [selected, planMap])
   const selectedHabits = selected
     ? habits.map((node) => {
-        const executed = habitDayMap.get(selected)?.get(node.habit.id)?.count ?? 0
+        const row = node.days.find((item) => item.day === selected)
+        const view = habitDayView({
+          habit: node.habit,
+          day: selected,
+          rows: node.days,
+          logs: node.logs,
+          now,
+          dayContextOf,
+        })
         return {
           id: node.habit.id,
           name: node.habit.name,
-          due: selectedDate && selectedContext ? isHabitDue(node.habit, selectedDate, selectedContext) : false,
-          executed,
+          due: row ? row.due : selected === todayKey ? view.due : false,
+          state: view.state,
+          executed: view.focusCount + view.manualCount,
         }
       })
     : []
-  const dueHabits = selectedHabits.filter((habit) => habit.due)
-  const pendingHabits = selectedHabits.filter(
-    (habit) => habitDayState(habit.due, habit.executed) === 'pending',
-  )
+  const dueHabits = selectedHabits.filter((habit) => habit.due && habit.state !== 'excused')
+  const pendingHabits = selectedHabits.filter((habit) => habit.state === 'pending')
+  const missedHabits = selectedHabits.filter((habit) => habit.state === 'missed')
   // 当天的执行记录：先列当天该做的，再列额外做的，组内按次数降序（口径与日视图一致）
   const executedHabits = selected
     ? selectedHabits
-        .filter((habit) => habit.executed > 0)
+        .filter((habit) => habit.state === 'done')
         .sort((a, b) => {
           if (a.due !== b.due) return a.due ? -1 : 1
           return b.executed - a.executed
@@ -770,7 +807,7 @@ export function PomodoroCalendar() {
                   key={cell.key}
                   onClick={() => setSelected(cell.key)}
                   className="group relative flex min-h-0 cursor-pointer flex-col overflow-hidden bg-[var(--card-surface)] px-2.5 pt-1.5 text-left outline-none transition-colors hover:bg-primary/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-                  title={`${cell.date.getFullYear()}/${cell.date.getMonth() + 1}/${cell.date.getDate()} · ${cell.count} 个番茄 · ${Math.round(cell.seconds / 60)} 分钟 · ${cell.plans.length} 个任务（完成 ${planDone}）${cell.habitCount > 0 ? ` · ${cell.habitCount} 次习惯` : ''}${overdue ? ' · 有逾期' : ''}`}
+                  title={`${cell.date.getFullYear()}/${cell.date.getMonth() + 1}/${cell.date.getDate()} · ${cell.count} 个番茄 · ${Math.round(cell.seconds / 60)} 分钟 · ${cell.plans.length} 个任务（完成 ${planDone}）${cell.habitDue > 0 ? ` · 习惯 ${cell.habitDone}/${cell.habitDue}${cell.habitMissed > 0 ? `（缺 ${cell.habitMissed}）` : ''}` : ''}${overdue ? ' · 有逾期' : ''}`}
                 >
                   <span className="flex w-full items-start justify-between gap-1">
                     <span className="flex min-w-0 flex-col items-start">
@@ -829,11 +866,13 @@ export function PomodoroCalendar() {
                         </span>
                       </span>
                     ) : null}
-                    {cell.habitCount > 0 ? (
+                    {cell.habitDue > 0 ? (
                       <span className="flex min-w-0 items-baseline gap-1">
-                        <span className="shrink-0 text-[8.5px] leading-none text-muted-foreground/75">习惯</span>
+                        <span className="shrink-0 text-[8.5px] leading-none text-muted-foreground/75">
+                          习惯
+                        </span>
                         <span className="truncate text-[9.5px] leading-none tabular-nums text-foreground">
-                          {cell.habitCount}次
+                          {cell.habitDone}/{cell.habitDue}
                         </span>
                       </span>
                     ) : null}
@@ -1089,13 +1128,14 @@ export function PomodoroCalendar() {
               ) : null}
             </section>
 
-            {dueHabits.length > 0 || executedHabits.length > 0 ? (
+            {dueHabits.length > 0 || executedHabits.length > 0 || missedHabits.length > 0 ? (
               <section>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-[12px] font-semibold text-foreground">习惯</p>
                   <p className="text-[10.5px] text-muted-foreground">
                     该做 {dueHabits.length} 个 · 已做{' '}
-                    {dueHabits.filter((habit) => habitDayState(habit.due, habit.executed) === 'done').length} 个
+                    {dueHabits.filter((habit) => habit.state === 'done').length} 个
+                    {missedHabits.length > 0 ? ` · 缺 ${missedHabits.length} 个` : ''}
                   </p>
                 </div>
                 {pendingHabits.length > 0 ? (
@@ -1109,6 +1149,22 @@ export function PomodoroCalendar() {
                         className="max-w-full cursor-pointer truncate rounded-md border border-foreground/10 px-2 py-1 text-[10.5px] text-muted-foreground outline-none transition-colors hover:border-primary/40 hover:bg-primary/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
                       >
                         {habit.name}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {missedHabits.length > 0 ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {missedHabits.map((habit) => (
+                      <button
+                        key={habit.id}
+                        type="button"
+                        onClick={() => jumpFromDialog('habit', habit.id)}
+                        title={`打开习惯：${habit.name}（这一天没有完成，可补记或请假）`}
+                        className="flex max-w-full cursor-pointer items-center gap-1 rounded-md bg-[#b58a98] px-2 py-1 text-[10.5px] text-white outline-none transition-colors hover:bg-[#b58a98]/90 focus-visible:ring-2 focus-visible:ring-primary/40"
+                      >
+                        <span className="truncate">{habit.name}</span>
+                        <span className="shrink-0 text-[9px] text-white/80">未完成</span>
                       </button>
                     ))}
                   </div>
@@ -1131,13 +1187,13 @@ export function PomodoroCalendar() {
                             'flex max-w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[11px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40',
                             extra
                               ? 'border border-dashed border-foreground/20 text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
-                              : 'bg-primary/[0.09] text-foreground hover:bg-primary/[0.16]',
+                              : 'bg-[#74a39e] text-white hover:bg-[#74a39e]/90',
                           )}
                         >
                           <Check
                             className={cn(
                               'size-3 shrink-0',
-                              extra ? 'text-muted-foreground/70' : 'text-primary',
+                              extra ? 'text-muted-foreground/70' : 'text-white/80',
                             )}
                             aria-hidden
                           />
@@ -1147,7 +1203,7 @@ export function PomodoroCalendar() {
                               'shrink-0 rounded-full px-1.5 font-mono text-[9.5px] tabular-nums',
                               extra
                                 ? 'bg-foreground/8 text-muted-foreground'
-                                : 'bg-primary/15 text-primary',
+                                : 'bg-white/15 text-white',
                             )}
                           >
                             ×{habit.executed}

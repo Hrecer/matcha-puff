@@ -198,8 +198,13 @@ export function StatsTab() {
     return node.startDate < dayEndMs && node.endDate >= dayStartMs
   })
   const doneTasksToday = todayTasks.filter(({ node }) => node.complete).length
-  const dueHabitsToday = habits.filter((node) => node.due)
+  const dueHabitsToday = habits.filter((node) => node.due && node.today.state !== 'excused')
   const doneHabitsToday = dueHabitsToday.filter((node) => node.state === 'done').length
+  const habitWeekDone = habits.reduce((sum, node) => sum + node.stats.weekDone, 0)
+  const habitWeekDue = habits.reduce((sum, node) => sum + node.stats.weekDue, 0)
+  const habitMonthDone = habits.reduce((sum, node) => sum + node.stats.monthDone, 0)
+  const habitMonthDue = habits.reduce((sum, node) => sum + node.stats.monthDue, 0)
+  const habitMonthRate = habitMonthDue > 0 ? Math.round((habitMonthDone / habitMonthDue) * 100) : 0
   const taskTotal = todayTasks.length
   const habitTotal = dueHabitsToday.length
   const doneItems = doneTasksToday + doneHabitsToday
@@ -370,6 +375,9 @@ export function StatsTab() {
           </div>
           <p className="mt-3 text-[10.5px] text-muted-foreground">
             {totalItems <= 0 ? '今天没有要完成的任务或习惯' : doneItems >= totalItems ? '今日目标已达成' : `还差 ${totalItems - doneItems} 项`}
+          </p>
+          <p className="mt-1 text-[10px] text-muted-foreground/80">
+            近 7 天习惯 {habitWeekDone}/{habitWeekDue} · 本月完成率 {habitMonthRate}%
           </p>
         </section>
 

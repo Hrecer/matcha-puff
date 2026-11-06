@@ -1,18 +1,18 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUpToLine, BarChart3, Check, GripVertical, Pencil, Play, Plus, Repeat, RotateCcw, SearchX, Trash2 } from 'lucide-react'
-import type { Habit, HabitCycle, TaskRef } from '@matcha-puff/pomodoro-core'
+import type { Habit, HabitCycle, HabitDayViewState, TaskRef } from '@matcha-puff/pomodoro-core'
 import {
   HABIT_CYCLE_LABELS,
   HABIT_CYCLE_ORDER,
   habitCountdownText,
+  habitLogDay,
   habitScheduleLabel,
+  localDayKey,
   needsCalendar,
-  nextHabitDueDate,
 } from '@matcha-puff/pomodoro-core'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DateField } from '@/components/ui/date-field'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DateField, DateRangeField, type DateRange } from '@/components/ui/date-field'
 import { Empty } from '@/components/ui/empty'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -20,19 +20,28 @@ import { SlidingSegmented } from '@/components/ui/sliding'
 import { Tip } from '@/components/ui/tooltip'
 import { cn } from 'cn'
 import { HabitFormDialog } from '@/components/focus/HabitFormDialog'
+import { HabitDetailDialog } from '@/components/focus/HabitDetailDialog'
 import { ConfirmDialog } from '@/components/focus/ConfirmDialog'
 import { displayTaskColor } from '@/components/focus/calendar-utils'
 import { quadrantMetaOf } from '@/components/focus/quadrants'
+import { habitWeekTileClass } from '@/components/focus/habit-status'
 import { toast } from '@/components/ui/toast'
 import { useFocusStore } from '@/lib/focus-store'
 import { consumeJump, useJumpRequest } from '@/lib/focus-jump'
 import {
+  clearHabitDayOverride,
   dayContextOf,
+  deleteHabitLog,
+  excuseHabitDay,
   invalidateFocusData,
   loadFocusData,
+  manualCheckHabit,
+  markHabitDayDue,
   newHabit,
+  overrideHabitDayDone,
   removeHabit,
   reorderHabits,
+  undoHabitManual,
   useFocusData,
   type HabitNode,
 } from '@/lib/focus-data'
@@ -40,7 +49,8 @@ import {
 
 type StatusFilter = 'all' | 'due' | 'done' | 'pending' | 'off'
 type DurationFilter = 'all' | 'short' | 'medium' | 'long' | 'xlong'
-type RunFilter = 'all' | 'never' | 'today' | 'week' | 'month' | 'few' | 'mid' | 'many'
+type RangeFilter = 'all' | 'week' | 'month' | 'last7' | 'last30' | 'custom'
+type PerformanceFilter = 'all' | 'done' | 'missed' | 'perfect' | 'manual' | 'never'
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -58,16 +68,25 @@ const DURATION_FILTERS: { value: DurationFilter; label: string }[] = [
   { value: 'xlong', label: '> 60 分钟' },
 ]
 
-const RUN_FILTERS: { value: RunFilter; label: string }[] = [
-  { value: 'all', label: '全部执行' },
-  { value: 'never', label: '从未执行' },
-  { value: 'today', label: '今天执行过' },
-  { value: 'week', label: '最近 7 天' },
-  { value: 'month', label: '最近 30 天' },
-  { value: 'few', label: '已执行 1–9 次' },
-  { value: 'mid', label: '已执行 10–49 次' },
-  { value: 'many', label: '已执行 50 次以上' },
+const RANGE_FILTERS: { value: RangeFilter; label: string }[] = [
+  { value: 'all', label: '全部时间' },
+  { value: 'week', label: '本周' },
+  { value: 'month', label: '本月' },
+  { value: 'last7', label: '近 7 天' },
+  { value: 'last30', label: '近 30 天' },
+  { value: 'custom', label: '自定义' },
 ]
+
+const PERFORMANCE_FILTERS: { value: PerformanceFilter; label: string }[] = [
+  { value: 'all', label: '全部记录' },
+  { value: 'done', label: '有完成' },
+  { value: 'missed', label: '有缺漏' },
+  { value: 'perfect', label: '全勤' },
+  { value: 'manual', label: '有打卡' },
+  { value: 'never', label: '从未完成' },
+]
+
+const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -95,8 +114,20 @@ function relativeTime(ms: number): string {
   return new Date(ms).toLocaleDateString('zh-CN')
 }
 
-const formatLocalDate = (date: Date): string =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+function rangeStartKey(range: RangeFilter, todayStart: number): string {
+  if (range === 'all' || range === 'custom') return ''
+  if (range === 'week') {
+    const date = new Date(todayStart)
+    const offset = (date.getDay() + 6) % 7
+    return localDayKey(todayStart - offset * DAY_MS)
+  }
+  if (range === 'month') {
+    const date = new Date(todayStart)
+    return localDayKey(new Date(date.getFullYear(), date.getMonth(), 1).getTime())
+  }
+  if (range === 'last7') return localDayKey(todayStart - 6 * DAY_MS)
+  return localDayKey(todayStart - 29 * DAY_MS)
+}
 
 export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: number) => void }) {
   const { habits, ready, holidayMissing } = useFocusData()
@@ -105,15 +136,17 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
   const runningHabitId =
     snapshot?.task?.id && (snapshot.phase !== 'idle' || snapshot.pending) ? snapshot.task.id : null
   const [draft, setDraft] = useState<Habit | null>(null)
-  const [analysis, setAnalysis] = useState<HabitNode | null>(null)
+  const [analysis, setAnalysis] = useState<{ id: string; day?: string } | null>(null)
   const [confirm, setConfirm] = useState<{ title: string; description: string; action: () => void } | null>(null)
 
-  /** 搜索只覆盖名称和简介；周期、时长、状态、执行情况、日期全部走下面的筛选条 */
+  /** 搜索只覆盖名称和简介；周期、时长、状态、记录范围、完成情况、日期全部走下面的筛选条 */
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [cycleFilter, setCycleFilter] = useState<'all' | HabitCycle>('all')
   const [durationFilter, setDurationFilter] = useState<DurationFilter>('all')
-  const [runFilter, setRunFilter] = useState<RunFilter>('all')
+  const [rangeFilter, setRangeFilter] = useState<RangeFilter>('all')
+  const [customRange, setCustomRange] = useState<DateRange>({ start: 0, end: 0 })
+  const [performanceFilter, setPerformanceFilter] = useState<PerformanceFilter>('all')
   const [dayFilter, setDayFilter] = useState(0)
 
   useEffect(() => {
@@ -165,13 +198,21 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
 
   /** 今天的零点：判断「今天做完没有」「最近 N 天」都用它 */
   const todayStart = startOfLocalDay(Date.now())
+  const todayKey = localDayKey(todayStart)
+  const rangeFrom =
+    rangeFilter === 'custom' && customRange.start > 0
+      ? localDayKey(customRange.start)
+      : rangeStartKey(rangeFilter, todayStart)
+  const rangeTo =
+    rangeFilter === 'custom' && customRange.end > 0 ? localDayKey(customRange.end) : todayKey
 
   const filterActive =
     query.trim().length > 0 ||
     statusFilter !== 'all' ||
     cycleFilter !== 'all' ||
     durationFilter !== 'all' ||
-    runFilter !== 'all' ||
+    rangeFilter !== 'all' ||
+    performanceFilter !== 'all' ||
     dayFilter > 0
 
   /** beginDrag 要稳定引用（卡片 memo），筛选状态通过 ref 读 */
@@ -179,12 +220,13 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
   filterActiveRef.current = filterActive
 
   /**
-   * 名称 + 简介做全文匹配（空格分词、全部命中）；其余条件都是筛选，互相互斥、组合生效。
-   * 执行类判断都只认 success 的记录：开始后中断的占位记录不算执行。
+   * 名称 + 简介做全文匹配（空格分词、全部命中）；其余条件都是筛选，组合生效。
+   * 历史表现只看日记录，不再逐条扫日志判断“某天做没做”。
    */
   const filteredIds = useMemo(() => {
     const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
-    const dayStart = dayFilter > 0 ? startOfLocalDay(dayFilter) : 0
+    const dayKey = dayFilter > 0 ? localDayKey(dayFilter) : ''
+    const inRange = (day: string) => !rangeFrom || (day >= rangeFrom && day <= rangeTo)
 
     return ids.filter((id) => {
       const node = byId.get(id)
@@ -206,37 +248,62 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
         if (durationFilter === 'xlong' && minutes <= 60) return false
       }
 
-      if (statusFilter === 'due' && !node.due) return false
+      if (statusFilter === 'due' && (!node.due || node.today.state === 'excused')) return false
       if (statusFilter === 'done' && node.state !== 'done') return false
       if (statusFilter === 'pending' && node.state !== 'pending') return false
-      if (statusFilter === 'off' && node.due) return false
+      if (statusFilter === 'off' && node.state !== 'off') return false
 
-      const lastSuccess = node.logs.find((log) => log.success)?.time ?? 0
-      if (runFilter === 'never' && node.count > 0) return false
-      if (runFilter === 'today' && lastSuccess < todayStart) return false
-      if (runFilter === 'week' && lastSuccess < todayStart - 6 * DAY_MS) return false
-      if (runFilter === 'month' && lastSuccess < todayStart - 29 * DAY_MS) return false
-      if (runFilter === 'few' && (node.count < 1 || node.count > 9)) return false
-      if (runFilter === 'mid' && (node.count < 10 || node.count > 49)) return false
-      if (runFilter === 'many' && node.count < 50) return false
+      const rows = node.days.filter((row) => inRange(row.day))
+      const doneRows = rows.filter((row) => row.state === 'done')
+      const missedRows = rows.filter((row) => row.state === 'missed')
+      const hasPending = rows.some((row) => row.state === 'pending')
+      const hasDue = rows.some((row) => row.due)
+      const hasManual = node.logs.some(
+        (log) =>
+          log.success &&
+          (log.source ?? 'focus') === 'manual' &&
+          inRange(habitLogDay(log)),
+      )
 
-      if (dayStart > 0) {
-        const hit = node.logs.some(
-          (log) => log.success && log.time >= dayStart && log.time < dayStart + DAY_MS,
-        )
+      if (performanceFilter === 'done' && doneRows.length === 0) return false
+      if (performanceFilter === 'missed' && missedRows.length === 0) return false
+      if (performanceFilter === 'perfect' && (!hasDue || missedRows.length > 0 || hasPending)) {
+        return false
+      }
+      if (performanceFilter === 'manual' && !hasManual) return false
+      if (performanceFilter === 'never' && doneRows.length > 0) return false
+
+      if (dayKey) {
+        const hit =
+          node.days.some((row) => row.day === dayKey && row.state === 'done') ||
+          node.logs.some((log) => log.success && habitLogDay(log) === dayKey)
         if (!hit) return false
       }
 
       return true
     })
-  }, [ids, byId, query, statusFilter, cycleFilter, durationFilter, runFilter, dayFilter, todayStart])
+  }, [
+    ids,
+    byId,
+    query,
+    statusFilter,
+    cycleFilter,
+    durationFilter,
+    rangeFrom,
+    rangeTo,
+    performanceFilter,
+    dayFilter,
+    todayKey,
+  ])
 
   const clearFilters = useCallback(() => {
     setQuery('')
     setStatusFilter('all')
     setCycleFilter('all')
     setDurationFilter('all')
-    setRunFilter('all')
+    setRangeFilter('all')
+    setCustomRange({ start: 0, end: 0 })
+    setPerformanceFilter('all')
     setDayFilter(0)
   }, [])
 
@@ -256,7 +323,15 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
 
   // 搜索/筛选条件一变就回到顶部，不继承上一份结果的位置（跳转中除外）
   useEffect(() => {
-    const sig = [query, statusFilter, cycleFilter, durationFilter, runFilter, dayFilter].join('|')
+    const sig = [
+      query,
+      statusFilter,
+      cycleFilter,
+      durationFilter,
+      rangeFilter,
+      performanceFilter,
+      dayFilter,
+    ].join('|')
     const prev = filtersSigRef.current
     filtersSigRef.current = sig
     // 首次null（挂载）与「签名没变」都不算变化，只有真的改了条件才回顶部
@@ -266,7 +341,15 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
     if (el) el.scrollTop = 0
     scrollPosRef.current = 0
     setScrollTop(0)
-  }, [query, statusFilter, cycleFilter, durationFilter, runFilter, dayFilter])
+  }, [
+    query,
+    statusFilter,
+    cycleFilter,
+    durationFilter,
+    rangeFilter,
+    performanceFilter,
+    dayFilter,
+  ])
 
   const columnWidth = boxWidth > 0 ? (boxWidth - GAP * (columns - 1)) / columns : 0
   const rowStep = cardHeight + GAP
@@ -344,7 +427,9 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
     jumpPendingRef.current = true
     setQuery('')
     setCycleFilter('all')
-    setRunFilter('all')
+    setRangeFilter('all')
+    setCustomRange({ start: 0, end: 0 })
+    setPerformanceFilter('all')
     consumeJump('habit')
     setJumpTarget(jump.id)
   }, [jump])
@@ -627,7 +712,58 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
 
   const editHabit = useCallback((node: HabitNode) => setDraft(node.habit), [])
 
-  const analyzeHabit = useCallback((node: HabitNode) => setAnalysis(node), [])
+  const analyzeHabit = useCallback(
+    (node: HabitNode, day?: string) => setAnalysis({ id: node.habit.id, day }),
+    [],
+  )
+
+  const checkInHabit = useCallback(async (habitId: string, day: string) => {
+    const ok = await manualCheckHabit(habitId, day)
+    if (!ok) {
+      toast('这一天不是该做日，不能打卡', 'error')
+      return
+    }
+    toast(day === localDayKey(new Date()) ? '已打卡' : '已补记')
+  }, [])
+
+  const checkInNode = useCallback(
+    (node: HabitNode) => {
+      void checkInHabit(node.habit.id, node.today.day)
+    },
+    [checkInHabit],
+  )
+
+  const excuseDay = useCallback(async (habitId: string, day: string, excused: boolean) => {
+    const ok = await excuseHabitDay(habitId, day, excused)
+    toast(
+      ok ? (excused ? '已标记请假' : '已取消请假') : '操作失败，请重试',
+      ok ? undefined : 'error',
+    )
+  }, [])
+
+  const undoManual = useCallback(async (habitId: string, day: string) => {
+    const ok = await undoHabitManual(habitId, day)
+    toast(ok ? '已撤销手动打卡' : '没有可撤销的打卡', ok ? undefined : 'error')
+  }, [])
+
+  const removeLog = useCallback(async (logId: string) => {
+    await deleteHabitLog(logId)
+  }, [])
+
+  const setDayDue = useCallback(async (habitId: string, day: string) => {
+    const ok = await markHabitDayDue(habitId, day)
+    toast(ok ? '已临时加做' : '无法临时加做', ok ? undefined : 'error')
+  }, [])
+
+  const overrideDayDone = useCallback(async (habitId: string, day: string) => {
+    const ok = await overrideHabitDayDone(habitId, day)
+    toast(ok ? '已临时加做并补记' : '无法补记这一天', ok ? undefined : 'error')
+  }, [])
+
+  const clearOverride = useCallback(async (habitId: string, day: string) => {
+    const ok = await clearHabitDayOverride(habitId, day)
+    toast(ok ? '已取消临时加做' : '无法取消', ok ? undefined : 'error')
+  }, [])
 
   /** 键盘排序：把手聚焦后按方向键挪一格，省得只能靠鼠标 */
   const moveHabit = useCallback(
@@ -659,15 +795,9 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
     [runningHabitId],
   )
 
-  const dueCount = habits.filter((item) => item.due).length
-  const analysisDoneToday = (analysis?.doneToday ?? 0) > 0
-  const analysisFrom = analysisDoneToday
-    ? new Date(startOfLocalDay(Date.now()) + DAY_MS)
-    : new Date()
-  const analysisNext = analysis ? nextHabitDueDate(analysis.habit, analysisFrom, dayContextOf) : null
-  const analysisCountdown = analysis
-    ? habitCountdownText(analysis.habit, analysisFrom, dayContextOf)
-    : null
+  const dueCount = habits.filter((item) => item.due && item.today.state !== 'excused').length
+  const doneDueCount = habits.filter((item) => item.due && item.state === 'done').length
+  const analysisNode = analysis ? (byId.get(analysis.id) ?? null) : null
 
   /**
    * 今日置顶：未完成 → 今日已完成 → 今天不用做。
@@ -719,8 +849,10 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
           sortable={!filterActive}
           onGripDown={beginDrag}
           onStart={startHabit}
+          onCheckIn={checkInNode}
           onEdit={editHabit}
           onAnalyze={analyzeHabit}
+          onOpenDay={analyzeHabit}
           onDelete={deleteHabit}
           onMove={moveHabit}
         />
@@ -737,7 +869,9 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
               ? '按周期重复的事，用专注时间累计执行'
               : filterActive
                 ? `匹配 ${filteredIds.length} 个 / 共 ${habits.length} 个`
-                : `今天该做 ${dueCount} 个 / 共 ${habits.length} 个`}
+                : dueCount === 0
+                  ? `今天没有要做的习惯 · 共 ${habits.length} 个`
+                  : `今天该做 ${dueCount} · 已完成 ${doneDueCount} · 还差 ${dueCount - doneDueCount} ／ 共 ${habits.length} 个`}
           </p>
           {holidayMissing && habits.some((node) => needsCalendar(node.habit.cycle)) ? (
             <p className="mt-0.5 text-[10.5px] text-muted-foreground/80">
@@ -763,7 +897,7 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
         </div>
       </div>
 
-      {/* 筛选分两行：第一行「搜索 + 今日状态」，第二行「周期 / 时长 / 执行情况 / 某天」。
+      {/* 筛选分两行：第一行「搜索 + 今日状态」，第二行「周期 / 时长 / 记录范围 / 完成情况 / 某天」。
           不用 flex-wrap 碰运气换行 —— 哪两个控件挨在一起是定死的，窄窗也不会乱排。 */}
       <div className="flex shrink-0 flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -823,14 +957,39 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
             </SelectContent>
           </Select>
           <Select
-            value={runFilter}
-            onValueChange={(value) => setRunFilter(value as RunFilter)}
+            value={rangeFilter}
+            onValueChange={(value) => setRangeFilter(value as RangeFilter)}
           >
-            <SelectTrigger size="sm" className="w-[150px] text-[12px]" aria-label="按执行情况筛选">
+            <SelectTrigger size="sm" className="w-[118px] text-[12px]" aria-label="按记录范围筛选">
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper" sideOffset={4} viewportClassName="scroll-thin">
-              {RUN_FILTERS.map((item) => (
+              {RANGE_FILTERS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {rangeFilter === 'custom' ? (
+            <DateRangeField
+              value={customRange}
+              onChange={setCustomRange}
+              placeholder="自定义区间"
+              max={todayStart}
+              className="h-8 w-[210px] px-2 text-[12px]"
+              ariaLabel="按自定义日期区间筛选"
+            />
+          ) : null}
+          <Select
+            value={performanceFilter}
+            onValueChange={(value) => setPerformanceFilter(value as PerformanceFilter)}
+          >
+            <SelectTrigger size="sm" className="w-[118px] text-[12px]" aria-label="按完成情况筛选">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" sideOffset={4} viewportClassName="scroll-thin">
+              {PERFORMANCE_FILTERS.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
                   {item.label}
                 </SelectItem>
@@ -913,8 +1072,10 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
             node={activeNode}
             presentational
             onStart={startHabit}
+            onCheckIn={checkInNode}
             onEdit={editHabit}
             onAnalyze={analyzeHabit}
+            onOpenDay={analyzeHabit}
             onDelete={deleteHabit}
             onMove={moveHabit}
           />
@@ -923,58 +1084,18 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
 
       <HabitFormDialog habit={draft} onOpenChange={(open) => !open && setDraft(null)} />
 
-      <Dialog open={analysis !== null} onOpenChange={(open) => !open && setAnalysis(null)}>
-        <DialogContent className="max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle className="text-[15px]">{analysis?.habit.name} 执行记录</DialogTitle>
-          </DialogHeader>
-          {analysisNext && analysisCountdown ? (
-            <p className="px-1 text-[10.5px] text-muted-foreground">
-              下次执行：{formatLocalDate(analysisNext)} · {analysisCountdown}
-            </p>
-          ) : null}
-          <div className="max-h-[360px] overflow-y-auto px-1 py-1 scroll-thin">
-            {analysis && analysis.logs.filter((log) => log.success).length > 0 ? (
-              <ol className="relative ml-2 pl-4">
-                {analysis.logs
-                  .filter((log) => log.success)
-                  .slice(0, 60)
-                  .map((log, index, rows) => (
-                    <li key={log.id} className="relative pb-3">
-                      {index < rows.length - 1 ? (
-                        <span
-                          className="absolute -left-[17px] top-2.5 -bottom-1.5 w-px bg-foreground/10"
-                          aria-hidden
-                        />
-                      ) : null}
-                      <span
-                        className="absolute -left-[21px] top-1.5 size-2 rounded-full bg-primary"
-                        aria-hidden
-                      />
-                      <p className="text-[12px] text-foreground">
-                        {new Date(log.time).toLocaleString('zh-CN', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                      <p className="text-[10.5px] text-muted-foreground">{relativeTime(log.time)}</p>
-                    </li>
-                  ))}
-              </ol>
-            ) : (
-              <p className="px-1 py-6 text-center text-[12px] text-muted-foreground">还没有完成的执行记录</p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAnalysis(null)}>
-              关闭
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <HabitDetailDialog
+        node={analysisNode}
+        initialDay={analysis?.day}
+        onOpenChange={(open) => !open && setAnalysis(null)}
+        onCheckIn={checkInHabit}
+        onExcuse={excuseDay}
+        onUndoManual={undoManual}
+        onDeleteLog={removeLog}
+        onSetDue={setDayDue}
+        onOverrideDone={overrideDayDone}
+        onClearOverride={clearOverride}
+      />
 
       <ConfirmDialog
         open={confirm !== null}
@@ -983,6 +1104,67 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
         onOpenChange={(open) => !open && setConfirm(null)}
         onConfirm={() => confirm?.action()}
       />
+    </div>
+  )
+}
+
+function weekCellTips(state: HabitDayViewState, focusCount: number, manualCount: number): string {
+  if (state === 'done') {
+    const pieces = []
+    if (focusCount > 0) pieces.push(`专注 ${focusCount} 次`)
+    if (manualCount > 0) pieces.push(`手动 ${manualCount} 次`)
+    return pieces.length ? `已完成 · ${pieces.join(' / ')}` : '已完成'
+  }
+  if (state === 'missed') return '未完成'
+  if (state === 'excused') return '已请假'
+  if (state === 'pending') return '待做'
+  if (state === 'future') return '待做'
+  return '休息 / 无记录'
+}
+
+/** 最近 7 格：只画到今天，点任意一格打开详情并定位到那一天 */
+function HabitWeekStrip({
+  node,
+  onOpenDay,
+}: {
+  node: HabitNode
+  onOpenDay: (node: HabitNode, day: string) => void
+}) {
+  return (
+    <div className="flex shrink-0 items-end gap-[3px]" aria-label="最近 7 天记录">
+      {node.recent.map((cell) => {
+        const date = cell.date
+        const dayLabel = `${date.getMonth() + 1} 月 ${date.getDate()} 日 · 周${
+          WEEKDAY_LABELS[date.getDay()]
+        }`
+        const tip = `${dayLabel} · ${weekCellTips(cell.state, cell.focusCount, cell.manualCount)}`
+        return (
+          <button
+            key={cell.day}
+            type="button"
+            title={tip}
+            aria-label={tip}
+            onClick={() => onOpenDay(node, cell.day)}
+            className="flex flex-col items-center gap-[2px] rounded-[3px] outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <span
+              className={cn(
+                'relative block size-[15px] rounded-[3px] transition-colors',
+                habitWeekTileClass(cell.state),
+              )}
+            />
+            {/* 今天不套描边，否则实心块会被看成一圈框；用星期字变色来标记今天 */}
+            <span
+              className={cn(
+                'text-[8px] leading-none',
+                cell.isToday ? 'font-semibold text-primary' : 'text-muted-foreground/60',
+              )}
+            >
+              {WEEKDAY_LABELS[date.getDay()]}
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -996,8 +1178,10 @@ const HabitCard = memo(function HabitCard({
   sortable = true,
   onGripDown,
   onStart,
+  onCheckIn,
   onEdit,
   onAnalyze,
+  onOpenDay,
   onDelete,
   onMove,
 }: {
@@ -1012,23 +1196,30 @@ const HabitCard = memo(function HabitCard({
   sortable?: boolean
   onGripDown?: (event: React.PointerEvent<HTMLButtonElement>, node: HabitNode) => void
   onStart: (node: HabitNode) => void
+  onCheckIn: (node: HabitNode) => void
   onEdit: (node: HabitNode) => void
-  onAnalyze: (node: HabitNode) => void
+  onAnalyze: (node: HabitNode, day?: string) => void
+  onOpenDay: (node: HabitNode, day: string) => void
   onDelete: (node: HabitNode) => void
   /** 键盘排序：方向键挪一格 */
   onMove: (node: HabitNode, delta: number) => void
 }) {
-  const { habit, due, state, doneToday, count, lastTime } = node
+  const { habit, due, doneToday, lastTime, stats, today } = node
   const scheduleLabel = habitScheduleLabel(habit)
   const countdown = habitCountdownText(habit, new Date(), dayContextOf)
   const quadrant = quadrantMetaOf(habit.quadrant)
+  const habitColor = displayTaskColor(habit.color)
   const draggable = sortable && !presentational
+  const todayDone = today.state === 'done'
+  const extraDone = todayDone && !due
 
   return (
     <section
       data-habit-card={habit.id}
+      // 习惯色直接做卡片描边：2px 向内加粗（border-box），不向外占位置
+      style={{ borderColor: habitColor }}
       className={cn(
-        'flex h-full flex-col rounded-panel border border-[var(--card-edge)] bg-[var(--card-surface)] px-4 py-3 shadow-sm transition-shadow',
+        'flex h-full flex-col rounded-panel border-2 bg-[var(--card-surface)] px-4 py-3 shadow-sm transition-shadow',
         due ? 'ring-1 ring-primary/25' : 'opacity-80',
         // 跳转落点：2px 主色内描边 + 一圈外发光，1.8 秒后自动消失
         flash && 'ring-2 ring-primary/60 shadow-[0_0_0_3px_rgba(49,83,42,0.18)]',
@@ -1039,7 +1230,7 @@ const HabitCard = memo(function HabitCard({
       )}
     >
       <div className="flex flex-1 items-start gap-2">
-        {/* 只有这个把手能起拖：卡片里还有开始/记录/编辑/删除四个按钮，整块可拖会误触 */}
+        {/* 只有这个把手能起拖：卡片里还有开始/打卡/记录/编辑/删除按钮，整块可拖会误触 */}
         <button
           type="button"
           aria-label={draggable ? '拖动排序，方向键可上下移动' : '筛选状态下不可拖动排序'}
@@ -1071,29 +1262,52 @@ const HabitCard = memo(function HabitCard({
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <span
-              className="size-2.5 shrink-0 rounded-full border border-foreground/10"
-              style={{ background: displayTaskColor(habit.color) }}
-              aria-hidden
-            />
-            <h3 className="min-w-0 truncate text-[13px] font-semibold text-foreground">{habit.name}</h3>
+            {/* 占位仍是原来的 10px，圆点视觉放大到 15px，不额外挤占标题宽度 */}
+            <span className="relative size-2.5 shrink-0" aria-hidden>
+              <span
+                className="absolute left-1/2 top-1/2 size-[15px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-foreground/10"
+                style={{ background: habitColor }}
+              />
+            </span>
+            <h3 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
+              {habit.name}
+            </h3>
+            {stats.streak > 0 ? (
+              <span
+                className="shrink-0 text-[9.5px] leading-none text-[#4f7c77]"
+                title={`连续 ${stats.streak} 天（休息与请假跳过）`}
+              >
+                连续 {stats.streak} 天
+              </span>
+            ) : null}
           </div>
-          {/* 第二行最左就是今日状态：不占标题行，也不额外占一行。
-              今天不用做的（灰色）不给标识，只有该做没做 / 已经做过才有。 */}
+          {/* 第二行最左就是今日状态：不占标题行，也不额外占一行。 */}
           <div className="mt-0.5 flex flex-wrap items-center gap-1">
-            {state === 'done' ? (
+            {todayDone && due ? (
               <span
                 title={doneToday > 1 ? `今天已完成 ${doneToday} 次` : '今天已完成'}
-                className="flex h-[18px] shrink-0 items-center gap-0.5 rounded-[4px] bg-success px-1.5 text-[11px] font-medium leading-[18px] text-success-foreground"
+                className="flex h-[18px] shrink-0 items-center gap-0.5 rounded-[4px] bg-[#74a39e] px-1.5 text-[11px] font-medium leading-[18px] text-white"
               >
                 <Check className="size-2.5" strokeWidth={3} aria-hidden />
                 已完成
               </span>
-            ) : state === 'pending' ? (
-              <span className="flex h-[18px] shrink-0 items-center rounded-[4px] bg-[#c0392b] px-1.5 text-[11px] font-medium leading-[18px] text-[#fff7f5]">
-                未完成
+            ) : extraDone ? (
+              <span className="flex h-[18px] shrink-0 items-center rounded-[4px] bg-[#74a39e] px-1.5 text-[11px] font-medium leading-[18px] text-white">
+                额外完成
               </span>
-            ) : null}
+            ) : today.state === 'pending' ? (
+              <span className="flex h-[18px] shrink-0 items-center rounded-[4px] bg-[#7f94ae] px-1.5 text-[11px] font-medium leading-[18px] text-white">
+                待做
+              </span>
+            ) : today.state === 'excused' ? (
+              <span className="flex h-[18px] shrink-0 items-center rounded-[4px] bg-[#9c8aa6] px-1.5 text-[11px] font-medium leading-[18px] text-white">
+                已请假
+              </span>
+            ) : (
+              <span className="flex h-[18px] shrink-0 items-center rounded-[4px] bg-foreground/5 px-1.5 text-[11px] font-medium leading-[18px] text-muted-foreground">
+                休息
+              </span>
+            )}
             <Badge
               variant={due ? 'secondary' : 'outline'}
               className="h-[18px] shrink-0 whitespace-nowrap px-1.5 py-0 text-[11px] leading-[18px]"
@@ -1119,43 +1333,63 @@ const HabitCard = memo(function HabitCard({
             {habit.desc}
           </p>
         </div>
-        <Tip label={due ? '开始专注' : '今天不是执行日'}>
-          <Button
-            size="icon-sm"
-            variant={due ? 'default' : 'ghost'}
-            disabled={!due}
-            aria-label="开始专注"
-            onClick={() => onStart(node)}
-          >
-            <Play className="size-3.5" aria-hidden />
-          </Button>
-        </Tip>
+        <div className="flex shrink-0 items-center gap-1">
+          {today.state === 'pending' ? (
+            <Tip label="直接打卡，不开始计时">
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="直接打卡"
+                onClick={() => onCheckIn(node)}
+              >
+                <Check className="size-3.5" aria-hidden />
+              </Button>
+            </Tip>
+          ) : null}
+          <Tip label={due ? '开始专注' : '今天不是执行日'}>
+            <Button
+              size="icon-sm"
+              variant={due ? 'default' : 'ghost'}
+              disabled={!due}
+              aria-label="开始专注"
+              onClick={() => onStart(node)}
+            >
+              <Play className="size-3.5" aria-hidden />
+            </Button>
+          </Tip>
+        </div>
       </div>
 
-      <div className="mt-2 flex shrink-0 items-center justify-between gap-2 border-t border-foreground/6 pt-2.5">
-        <p className="flex flex-wrap items-center gap-x-2 text-[10.5px] text-muted-foreground">
+      <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-foreground/6 pt-2">
+        <p
+          className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[10.5px] text-muted-foreground"
+          title={`上次执行：${relativeTime(lastTime)}`}
+        >
           <span className="font-mono tabular-nums text-foreground/80">{habit.time} 分钟</span>
           <span aria-hidden>·</span>
-          <span>已执行 {count} 次</span>
+          <span>完成 {stats.doneDays} 天</span>
           <span aria-hidden>·</span>
-          <span>{relativeTime(lastTime)}</span>
+          <span>专注 {stats.focusCount} 次</span>
         </p>
-        <div className="flex shrink-0 items-center">
-          <Tip label="执行记录">
-            <Button size="icon-xs" variant="ghost" aria-label="执行记录" onClick={() => onAnalyze(node)}>
-              <BarChart3 className="size-3" aria-hidden />
-            </Button>
-          </Tip>
-          <Tip label="编辑">
-            <Button size="icon-xs" variant="ghost" aria-label="编辑习惯" onClick={() => onEdit(node)}>
-              <Pencil className="size-3" aria-hidden />
-            </Button>
-          </Tip>
-          <Tip label="删除">
-            <Button size="icon-xs" variant="ghost" aria-label="删除习惯" onClick={() => onDelete(node)}>
-              <Trash2 className="size-3" aria-hidden />
-            </Button>
-          </Tip>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <HabitWeekStrip node={node} onOpenDay={onOpenDay} />
+          <div className="flex shrink-0 items-center">
+            <Tip label="执行记录">
+              <Button size="icon-xs" variant="ghost" aria-label="执行记录" onClick={() => onAnalyze(node)}>
+                <BarChart3 className="size-3" aria-hidden />
+              </Button>
+            </Tip>
+            <Tip label="编辑">
+              <Button size="icon-xs" variant="ghost" aria-label="编辑习惯" onClick={() => onEdit(node)}>
+                <Pencil className="size-3" aria-hidden />
+              </Button>
+            </Tip>
+            <Tip label="删除">
+              <Button size="icon-xs" variant="ghost" aria-label="删除习惯" onClick={() => onDelete(node)}>
+                <Trash2 className="size-3" aria-hidden />
+              </Button>
+            </Tip>
+          </div>
         </div>
       </div>
     </section>

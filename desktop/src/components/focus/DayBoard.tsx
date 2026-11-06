@@ -35,6 +35,8 @@ export interface DayDetail {
     /** 当天所有成功执行过的习惯；extra = 当天本来不用做、但还是做了 */
     done: { id: string; name: string; count: number; extra: boolean }[]
     pending: { id: string; name: string }[]
+    /** 过去该做但没做：不叫逾期，只叫未完成 */
+    missed: { id: string; name: string }[]
   }
   planGroups: { rootId: string; rootTitle: string; items: PlanEntry[] }[]
   planDone: number
@@ -136,8 +138,14 @@ export function DayBoard({ detail }: { detail: DayDetail }) {
 
         {/* 习惯与「时间分布」固定同高：内容多时卡内滚动 */}
         <section className={cn(CARD, 'flex min-h-0 flex-col')}>
-          <SectionTitle trailing={`该做 ${habits.due} · 已做 ${habits.doneDue}`}>习惯</SectionTitle>
-          {habits.due === 0 && habits.done.length === 0 ? (
+          <SectionTitle
+            trailing={`该做 ${habits.due} · 已做 ${habits.doneDue}${
+              habits.missed.length > 0 ? ` · 缺 ${habits.missed.length}` : ''
+            }`}
+          >
+            习惯
+          </SectionTitle>
+          {habits.due === 0 && habits.done.length === 0 && habits.missed.length === 0 ? (
             <p className="mt-1.5 text-[10.5px] text-muted-foreground/70">这一天没有要到期的习惯。</p>
           ) : (
             <div className={cn(SCROLL, 'mt-1.5 flex flex-wrap content-start gap-1')}>
@@ -154,6 +162,18 @@ export function DayBoard({ detail }: { detail: DayDetail }) {
                   {habit.name}
                 </button>
               ))}
+              {habits.missed.map((habit) => (
+                <button
+                  key={habit.id}
+                  type="button"
+                  onClick={() => detail.onJumpHabit(habit.id)}
+                  title={`打开习惯：${habit.name}（这一天没有完成，可补记或请假）`}
+                  className="flex max-w-full items-center gap-1 rounded-md bg-[#b58a98] px-1.5 py-0.5 text-[10.5px] text-white outline-none transition-colors hover:bg-[#b58a98]/90 focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  <span className="truncate">{habit.name}</span>
+                  <span className="shrink-0 text-[9px] text-white/80">未完成</span>
+                </button>
+              ))}
               {habits.done.map((habit) => (
                 <button
                   key={habit.id}
@@ -168,13 +188,13 @@ export function DayBoard({ detail }: { detail: DayDetail }) {
                     'flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40',
                     habit.extra
                       ? 'border border-dashed border-foreground/20 text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
-                      : 'bg-primary/[0.09] text-foreground hover:bg-primary/[0.16]',
+                      : 'bg-[#74a39e] text-white hover:bg-[#74a39e]/90',
                   )}
                 >
                   <Check
                     className={cn(
                       'size-2.5 shrink-0',
-                      habit.extra ? 'text-muted-foreground/70' : 'text-primary',
+                      habit.extra ? 'text-muted-foreground/70' : 'text-white/80',
                     )}
                     aria-hidden
                   />
@@ -182,7 +202,7 @@ export function DayBoard({ detail }: { detail: DayDetail }) {
                   <span
                     className={cn(
                       'shrink-0 rounded-full px-1 font-mono text-[9px] tabular-nums',
-                      habit.extra ? 'bg-foreground/8 text-muted-foreground' : 'bg-primary/15 text-primary',
+                      habit.extra ? 'bg-foreground/8 text-muted-foreground' : 'bg-white/15 text-white',
                     )}
                   >
                     ×{habit.count}
