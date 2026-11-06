@@ -139,10 +139,9 @@ export async function openPluginTool(pluginId: string): Promise<void> {
   if (!inTauri()) {
     // 浏览器预览：window.open 必须发生在用户手势的同步段内，先开再读设置；
     // 页面自身会再读一次开关，禁用时展示禁用说明。
-    // 尺寸补 16px×2：子窗用透明留白画外阴影，补回后界面仍是设计尺寸。
     recordRecent(`plugin:${pluginId}`)
     const url = `${import.meta.env.BASE_URL}tool.html?tool=${encodeURIComponent(pluginId)}`
-    window.open(url, '_blank', `width=${spec.width + 32},height=${spec.height + 32}`)
+    window.open(url, '_blank', `width=${spec.width},height=${spec.height}`)
     return
   }
 

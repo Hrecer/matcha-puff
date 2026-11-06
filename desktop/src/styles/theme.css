@@ -90,7 +90,6 @@
   --window-edge-glow: oklch(0.46 0.085 132 / 0.14);
   --window-shadow: 0 6px 16px -4px oklch(0.24 0.035 135 / 0.42),
     0 2px 6px oklch(0.24 0.035 135 / 0.20);
-  --window-shadow-room: 16px;
   /* 毛玻璃沿光向的渐变描边（FrostedRimPainter 四站）：浅底上保留轮廓但不发白 */
   --rim-a: oklch(1 0 0 / 0.55);
   --rim-b: oklch(1 0 0 / 0.04);
@@ -394,40 +393,27 @@
     border: 2px solid var(--window-edge);
   }
 
-  .window-shell.is-maximized {
+  /* 贴靠 / 最大化（整格贴满）：圆角归零，否则贴屏幕边的圆角会缺出桌面 */
+  .window-shell.is-tiled {
     border-radius: 0;
   }
 
   /**
    * 工具子窗浮台
    *
-   * 子窗是 transparent 窗口，外阴影必须画在窗体内部的透明留白里，
-   * 否则会被视口裁掉（画到圆角外又会形成灰膜）。
-   * 留白 14px 由 Rust 建窗时在原尺寸上等量补偿，界面可用面积不变。
+   * 窗口矩形 = 可见窗口：壳直接铺满窗口，不留阴影外边距。
+   * 给外阴影腾留白会让贴靠/还原必须切换壳几何，内容跟着跳；
+   * 层级感交给 2px 边框，与主窗口一致。
    */
   .window-stage {
     height: 100%;
-    padding: var(--window-shadow-room);
-  }
-
-  .window-stage .window-shell {
-    box-shadow: var(--window-shadow);
-  }
-
-  .window-stage.is-maximized {
-    padding: 0;
-  }
-
-  .window-stage.is-maximized .window-shell {
-    box-shadow: none;
   }
 
   /**
    * 桌面专注挂件卡片
    *
-   * 边框与阴影直接复用插件窗口的同一组令牌（--window-edge / --window-shadow），
-   * 只有形状不同：这里是一枚胶囊。外阴影同样画在窗体内部的透明留白里，
-   * 留白宽度与 .window-stage 一致（--window-shadow-room）。
+   * 边框与阴影直接复用同一组令牌（--window-edge / --window-shadow），
+   * 只有形状不同：这里是一枚胶囊。挂件不参与贴靠，外阴影仍画在窗口内的透明留白里。
    */
   .widget-shell {
     background: var(--background);

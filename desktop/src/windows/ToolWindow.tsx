@@ -7,7 +7,7 @@ import { CaptionBar } from '@/components/ui/caption-bar'
 import { Empty } from '@/components/ui/empty'
 import { WindowResizeHandles } from '@/components/ui/window-resize-handles'
 import { getPlugin, getToolSettings, invalidateToolSettings } from '@/lib/tool-core'
-import { useMaximized } from '@/lib/use-maximized'
+import { useFrameState } from '@/lib/use-frame-state'
 import { pluginIcon } from '@/lib/plugin-tools'
 
 /**
@@ -47,7 +47,7 @@ export function ToolWindow() {
   const Icon = pluginIcon(toolId)
   const View = plugin?.desktop?.view ? VIEW_COMPONENTS[plugin.desktop.view] : undefined
   const [toggle, setToggle] = useState<PluginToggle | null>(null)
-  const maximized = useMaximized()
+  const frame = useFrameState()
 
   useEffect(() => {
     document.title = plugin?.name ?? '工具'
@@ -80,11 +80,11 @@ export function ToolWindow() {
   const hidden = !!plugin && !!toggle && !(plugin.defaultPolicy.uiEnabled && toggle.uiEnabled)
 
   return (
-    <div className={cn('window-stage relative', maximized && 'is-maximized')}>
-      <div className={cn('window-shell flex h-full flex-col', maximized && 'is-maximized')}>
+    <div className="window-stage relative">
+      <div className={cn('window-shell flex h-full flex-col', frame.tiled && 'is-tiled')}>
         <AmbientBackground />
         <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-          <CaptionBar brand={plugin?.name ?? '工具'} icon={plugin ? Icon : undefined} maximized={maximized} />
+          <CaptionBar brand={plugin?.name ?? '工具'} icon={plugin ? Icon : undefined} maximized={frame.maximized} />
 
           {!plugin ? (
             <div className="flex min-h-0 flex-1 items-center justify-center p-6">
@@ -125,7 +125,7 @@ export function ToolWindow() {
           )}
         </div>
       </div>
-      <WindowResizeHandles maximized={maximized} />
+      <WindowResizeHandles maximized={frame.maximized} />
     </div>
   )
 }

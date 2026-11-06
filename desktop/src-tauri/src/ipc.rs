@@ -142,11 +142,32 @@ fn event_module(
 ///
 /// 计时线程也走这里：Rust 每秒推送 focus:tick，前端只渲染。
 pub fn broadcast(app: &AppHandle, state: &AppState, event: &str, payload: &Value) -> usize {
+    emit_events(app, state, event, None, payload)
+}
+
+/// 只投给指定窗口（贴靠态只属于单个窗口的几何，不能广播给别的窗口）。
+pub fn broadcast_to(
+    app: &AppHandle,
+    state: &AppState,
+    event: &str,
+    label: &str,
+    payload: &Value,
+) -> usize {
+    emit_events(app, state, event, Some(label), payload)
+}
+
+fn emit_events(
+    app: &AppHandle,
+    state: &AppState,
+    event: &str,
+    only: Option<&str>,
+    payload: &Value,
+) -> usize {
     let targets: Vec<(String, u64)> = {
         let st = state.events.lock().unwrap();
         st.listeners
             .values()
-            .filter(|listener| listener.event == event)
+            .filter(|listener| listener.event == event && only.is_none_or(|l| l == listener.label))
             .map(|listener| (listener.label.clone(), listener.handler))
             .collect()
     };
@@ -458,6 +479,10 @@ fn window_manage(app: &AppHandle, msg: &Value) -> Result<Value, String> {
             Ok(json!({"x": p.x, "y": p.y}))
         }
         "isMaximized" => Ok(json!(win.is_maximized().map_err(|e| e.to_string())?)),
+        // 贴靠态（Aero Snap）不改 WindowState，只能按窗口矩形 + 工作区几何判
+        "frameState" => Ok(crate::frame::query(&win)
+            .map(|state| state.to_json())
+            .unwrap_or(Value::Null)),
         "isMinimized" => Ok(json!(win.is_minimized().map_err(|e| e.to_string())?)),
         "isVisible" => Ok(json!(win.is_visible().map_err(|e| e.to_string())?)),
         "isDecorated" => Ok(json!(win.is_decorated().map_err(|e| e.to_string())?)),
@@ -942,10 +967,8 @@ async fn dispatch_command(
 /// 无原生边框、透明，圆角由前端 .window-shell 绘制，尺寸按插件单独设计；
 /// 窗口可拉伸，最小尺寸兜底。
 ///
-/// 外形尺寸额外加 SHADOW_ROOM×2：前端 .window-stage 用这圈透明留白画外阴影，
-/// 保证插件设计尺寸仍完整留给界面，叠窗时阴影也能压在下一层窗口上。
-const TOOL_WINDOW_SHADOW_ROOM: f64 = 16.0;
-
+/// 窗口矩形 = 可见窗口：不再留阴影外边距。给外阴影腾的透明留白会让贴靠/还原时
+/// 必须切换壳几何，内容跟着跳 32px（贴靠进入/退出时整页抖动）；外阴影只留边框。
 fn open_plugin_tool_window(app: &AppHandle, message: &Value) -> Result<Value, String> {
     let tool_id = message
         .get("toolId")
@@ -992,16 +1015,10 @@ fn open_plugin_tool_window(app: &AppHandle, message: &Value) -> Result<Value, St
     let id_json = serde_json::to_string(&tool_id).map_err(|e| e.to_string())?;
     inject.push_str(&format!("\nwindow.__MATCHA_TOOL_ID__ = {id_json};"));
 
-    WebviewWindowBuilder::new(app, &label, WebviewUrl::App("next/tool.html".into()))
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("next/tool.html".into()))
         .title(title)
-        .inner_size(
-            width + TOOL_WINDOW_SHADOW_ROOM * 2.0,
-            height + TOOL_WINDOW_SHADOW_ROOM * 2.0,
-        )
-        .min_inner_size(
-            420.0 + TOOL_WINDOW_SHADOW_ROOM * 2.0,
-            360.0 + TOOL_WINDOW_SHADOW_ROOM * 2.0,
-        )
+        .inner_size(width, height)
+        .min_inner_size(420.0, 360.0)
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -1013,6 +1030,7 @@ fn open_plugin_tool_window(app: &AppHandle, message: &Value) -> Result<Value, St
         .initialization_script(inject)
         .build()
         .map_err(|e| e.to_string())?;
+    crate::frame::install(&window);
     Ok(Value::Null)
 }
 

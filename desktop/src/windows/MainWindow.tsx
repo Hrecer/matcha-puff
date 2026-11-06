@@ -25,7 +25,7 @@ import { Tip } from '@/components/ui/tooltip'
 import { NavItem } from '@/components/ui/nav-item'
 import { useSlidingIndicator } from '@/components/ui/sliding'
 import { getConf, listen } from '@/ipc/bridge'
-import { useMaximized } from '@/lib/use-maximized'
+import { useFrameState } from '@/lib/use-frame-state'
 import { preloadUiPlugins } from '@/lib/use-ui-plugins'
 import { readSessionState } from '@/lib/session-state'
 import { UNASSIGNED_TASK } from '@matcha-puff/pomodoro-core'
@@ -62,7 +62,7 @@ export function MainWindow() {
   const location = useLocation()
   const pathname = location.pathname.replace(/\.html$/, '') || '/'
   const [collapsed, setCollapsed] = useState(false)
-  const maximized = useMaximized()
+  const frame = useFrameState()
   /** 工具页滚动到哪个顶层分类（由页面 scroll spy 回报，驱动分类高亮滑动） */
   const [visibleTopId, setVisibleTopId] = useState<number | undefined>(undefined)
   /** 工具页搜索词：抬到页头，与标题同一行，不再单占一行 */
@@ -354,12 +354,12 @@ export function MainWindow() {
                 : '工作台'
 
   return (
-    <div className={cn('window-shell', maximized && 'is-maximized')}>
+    <div className={cn('window-shell', frame.tiled && 'is-tiled')}>
       <AmbientBackground />
 
       <div className="relative z-10 flex h-full flex-col">
         {/* ── 沉浸式标题栏（品牌 + 拖拽 + 自绘窗口按钮） ───────────────── */}
-        <CaptionBar maximized={maximized} />
+        <CaptionBar maximized={frame.maximized} />
 
         {/* ── 内容区：玻璃侧栏 + 内容列 ───────────────────────────────── */}
         <div className="flex min-h-0 flex-1 gap-6 p-6">

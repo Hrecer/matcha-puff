@@ -5,6 +5,7 @@ import { FocusChip } from '@/components/focus/FocusChip'
 import { Tip } from '@/components/ui/tooltip'
 import { cn } from 'cn'
 import { startDragging, toggleMaximize, windowCmd } from '@/ipc/bridge'
+import { expectMaximized } from '@/lib/use-frame-state'
 
 
 
@@ -73,6 +74,7 @@ export function CaptionBar({
     // 第二次按下立即切换，和 Windows 原生标题栏一样不等第二次松手
     if (e.detail === 2) {
       drag.current.down = false
+      expectMaximized(!maximized)
       toggleMaximize().catch(() => {})
       return
     }
@@ -118,7 +120,10 @@ export function CaptionBar({
         </CapButton>
         <CapButton
           label={maximized ? '还原' : '最大化'}
-          onClick={() => toggleMaximize().catch(() => {})}
+          onClick={() => {
+            expectMaximized(!maximized)
+            toggleMaximize().catch(() => {})
+          }}
         >
           {maximized ? <RestoreGlyph /> : <MaximizeGlyph />}
         </CapButton>

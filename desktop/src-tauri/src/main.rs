@@ -3,6 +3,7 @@
 mod conf;
 mod db;
 mod focus;
+mod frame;
 mod ipc;
 mod search;
 
@@ -396,13 +397,15 @@ fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWin
         // 此前没关 decorations，原生标题栏与自定义页头同时存在，就是「双层导航栏」。
         .decorations(false)
         // 透明窗 + 前端 CSS 圆角（26px，与侧栏大面板一致）：窗口四角露出桌面，
-        // 圆角幅度与 --radius-glass 对齐；最大化时由前端把圆角归零。
+        // 圆角幅度与 --radius-glass 对齐；最大化/贴靠（整格贴满）时由 Rust 按几何判态、
+        // 前端把圆角归零——Aero Snap 不改 WindowState，只看最大化会漏掉半屏贴靠。
         .transparent(true)
         // 系统阴影按矩形窗画，会在 CSS 圆角四角漏出方角痕迹；外阴影由前端画。
         .shadow(false)
         .data_directory(webview_data_dir())
         .initialization_script(inject_script("main", &["main".to_string()]))
         .build()?;
+    frame::install(&w);
     Ok(w)
 }
 

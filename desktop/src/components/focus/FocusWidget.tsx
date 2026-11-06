@@ -6,7 +6,7 @@ import { formatRemain } from '@matcha-puff/pomodoro-core'
 import { cn } from 'cn'
 
 /**
- * 卡片四周的透明留白（外阴影画在这里面），与 CSS --window-shadow-room 一致。
+ * 卡片四周的透明留白（外阴影画在这里面）。
  * 顶部留出提示浮层的完整高度：提示画在卡片上方，留白不够会被窗口上沿削掉。
  * 24 只够单行提示，长任务名换两行就会顶出窗口，这里按两行 + 边距预留。
  */

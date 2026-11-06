@@ -106,8 +106,14 @@ export const isVisible = () =>
   invokeModule<boolean>('Window', { cmd: 'manage', data: { label: winLabel(), cmd: { type: 'isVisible' } } })
 
 
-export const isMaximized = () =>
-  invokeModule<boolean>('Window', { cmd: 'manage', data: { label: winLabel(), cmd: { type: 'isMaximized' } } })
+/** 窗口外壳状态：maximized 管按钮图标，tiled 管圆角/留白（最大化与贴靠都算整格贴满） */
+export type FrameState = { maximized: boolean; tiled: boolean }
+
+export const frameState = () =>
+  invokeModule<FrameState | null>('Window', {
+    cmd: 'manage',
+    data: { label: winLabel(), cmd: { type: 'frameState' } },
+  })
 
 // ---------------------------------------------------------------------------
 // 事件（后端 emit → window["_<handler>"]）
