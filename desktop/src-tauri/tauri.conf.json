@@ -26,6 +26,7 @@
     "longDescription": "专注、时间、白噪音与 53 个内置工具，数据都留在本机。",
     "windows": {
       "nsis": {
+        "template": "nsis/installer.nsi",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
         "headerImage": "icons/nsis/header.bmp",
