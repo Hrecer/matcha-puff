@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Check,
   ChevronRight,
+  CircleDot,
+  Clock,
   Coffee,
   FileText,
   Focus as FocusIcon,
@@ -10,29 +12,37 @@ import {
   Play,
   SkipForward,
   Square,
-  type LucideIcon,
 } from 'lucide-react'
 import {
   formatRemain,
+  habitCountdownText,
+  habitScheduleLabel,
   makeupTime,
   secondsToMinutes,
+  taskCountdown,
   UNASSIGNED_TASK,
 } from '@matcha-puff/pomodoro-core'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 import { SectionTitle } from '@/components/ui/section-title'
 import { SlidingSegmented } from '@/components/ui/sliding'
+import { Tip } from '@/components/ui/tooltip'
 import { WidgetHideIcon, WidgetShowIcon } from '@/components/focus/FocusWidgetIcons'
 import { TaskPicker, type PickedTask } from '@/components/focus/TaskPicker'
 import { HabitsTab } from '@/components/focus/HabitsTab'
 import { QuadrantTab } from '@/components/focus/QuadrantTab'
-import { loadFocusData, startFocusDataClock } from '@/lib/focus-data'
+import { displayTaskColor } from '@/components/focus/calendar-utils'
+import { quadrantMetaOf } from '@/components/focus/quadrants'
+import { toDateInput } from '@/components/ui/date-field'
+import { dayContextOf, loadFocusData, startFocusDataClock, useFocusData } from '@/lib/focus-data'
+import type { HabitNode } from '@/lib/focus-data'
 import { jumpTo, useJumpRequest } from '@/lib/focus-jump'
 import { TasksTab } from '@/components/focus/TasksTab'
 import { InboxTab } from '@/components/focus/InboxTab'
 import { PomodoroCalendar } from '@/components/focus/PomodoroCalendar'
 import { StatsTab } from '@/components/focus/StatsTab'
-import type { TaskRef } from '@matcha-puff/pomodoro-core'
+import type { TaskNode, TaskRef } from '@matcha-puff/pomodoro-core'
 import { cn } from 'cn'
 import {
   initFocusStore,
@@ -181,6 +191,7 @@ export function FocusPage() {
 
 function TimerTab() {
   const { ready, snapshot, summary, config, error } = useFocusStore()
+  const { roots, habits: habitNodes } = useFocusData()
   const [picked, setPicked] = useState<PickedTask | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
 
@@ -196,6 +207,23 @@ function TimerTab() {
   // 否则休息结束后计时页还挂着它，看起来像没退出。
   const task = phase === 'idle' ? (picked?.task ?? UNASSIGNED_TASK) : liveTask
   const startMinutes = picked?.minutes ?? config.pomodoroTime
+
+  /** 任务 id → 派生节点 + 所属顶层色：子任务与任务列表一样继承顶层任务的颜色 */
+  const taskIndex = useMemo(() => {
+    const map = new Map<string, { node: TaskNode; rootColor: string | undefined }>()
+    const walk = (node: TaskNode, rootColor: string | undefined) => {
+      map.set(node.task.id, { node, rootColor })
+      for (const child of node.children) walk(child, rootColor)
+    }
+    for (const root of roots) walk(root, root.task.color)
+    return map
+  }, [roots])
+  const habitIndex = useMemo(
+    () => new Map(habitNodes.map((item) => [item.habit.id, item])),
+    [habitNodes],
+  )
+  const taskInfo = taskIndex.get(task.id)
+  const habitInfo = habitIndex.get(task.id)
 
   // 选择一旦交给会话，就不再作为「下一次」的预设：这段结束后回到未命名待命态。
   useEffect(() => {
@@ -230,7 +258,14 @@ function TimerTab() {
   return (
     <>
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 pt-2">
-      <FocusBanner phase={phase} resting={resting} task={task} />
+      <FocusBanner
+        phase={phase}
+        resting={resting}
+        task={task}
+        node={taskInfo?.node}
+        rootColor={taskInfo?.rootColor}
+        habit={habitInfo}
+      />
       <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
       <section className="glass flex flex-col items-center justify-center rounded-panel px-6 py-8">
         <div className="relative flex size-[268px] items-center justify-center">
@@ -441,51 +476,174 @@ function Row({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** 顶部任务横幅：空闲/运行/休息三种状态。 */
+/** 顶部任务横幅：空闲/运行/休息三种状态，内容一律取任务/习惯的实时数据。 */
 function FocusBanner({
   phase,
   resting,
   task,
+  node,
+  rootColor,
+  habit,
 }: {
   phase: string
   resting: boolean
   task: TaskRef
+  node?: TaskNode
+  rootColor?: string
+  habit?: HabitNode
 }) {
-  let title: string
-  let desc: string
-  let icon: LucideIcon
-  let tone: string
+  // 快照只在实时数据查不到时兜底（例如任务已被异常删除）：正常路径全部用当前值
+  const isHabit = habit ? true : node ? false : task.type === 1
+  const isUnassigned = !node && !habit && task.type === 0
+  const title = habit?.habit.name ?? node?.task.title ?? task.name
+  const desc = habit?.habit.desc ?? node?.task.desc ?? task.desc
+  // 子任务与任务列表一样继承所属顶层任务的颜色；习惯用自己的颜色
+  const color = displayTaskColor(isHabit ? habit?.habit.color : rootColor)
+  const Icon = isHabit ? Pin : isUnassigned ? FocusIcon : FileText
 
   if (resting) {
-    title = '休息时间到啦！'
-    desc = '当前为休息时间，请注意休息！'
-    icon = Coffee
-    tone = 'text-success'
-  } else if (phase === 'idle' && task.type === 0) {
-    title = '启动一个未命名的番茄钟任务'
-    desc = '在此处启动的番茄钟仅被记录时间，请在任务或习惯页面开始番茄钟。'
-    icon = FocusIcon
-    tone = 'text-primary'
-  } else {
-    title = task.name || '未命名专注'
-    desc = task.desc || '这次专注没有任务归属，只记录时间。'
-    icon = task.type === 1 ? Pin : task.type === 0 ? FocusIcon : FileText
-    // 任务类型只靠图标形状区分：全 UI 统一抹茶绿，不再用红/青给类型上色
-    tone = 'text-primary'
+    // 休息时只保留「刚完成的是哪一条」：颜色圆点 + 名称，其余信息收起来
+    const showIdentity = !isUnassigned && title.trim().length > 0
+    return (
+      <section className="glass flex items-center gap-3 rounded-panel px-4 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {showIdentity ? <IdentityDot color={color} /> : null}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-semibold text-foreground">
+              {showIdentity ? title : '休息时间到啦！'}
+            </p>
+            <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
+              {showIdentity ? '刚完成这一段，休息一下。' : '当前为休息时间，请注意休息！'}
+            </p>
+          </div>
+        </div>
+        <span className="flex size-9 shrink-0 items-center justify-center" aria-hidden>
+          <Coffee className="size-6 text-success" strokeWidth={2.2} />
+        </span>
+      </section>
+    )
   }
-  const Icon = icon
-  const jumpKind =
-    !resting && task.type === 1
-      ? ('habit' as const)
-      : !resting && (task.type === 2 || task.type === 3)
-        ? ('task' as const)
-        : null
+
+  // 截止倒数：逾期与已完成都不显示（逾期任务本来也不允许开始专注）
+  const countdown =
+    node && !node.complete && node.endDate > 0 ? taskCountdown(node.endDate) : null
+  const visibleCountdown = countdown && countdown.state !== 'overdue' ? countdown : null
+  const quadrant = node
+    ? quadrantMetaOf(node.task.quadrant)
+    : habit
+      ? quadrantMetaOf(habit.habit.quadrant)
+      : null
+  const scheduleLabel = habit ? habitScheduleLabel(habit.habit) : null
+  // 非每日习惯附下一次执行日：与习惯卡周期徽章同一口径
+  const scheduleCountdown = habit ? habitCountdownText(habit.habit, new Date(), dayContextOf) : null
+  const streak = habit?.stats.streak ?? 0
+
+  // 任务右上角：与任务列表同一套「起止日期 + 番茄进度」展示
+  const from = node ? toDateInput(node.startDate) : ''
+  const to = node ? toDateInput(node.endDate) : ''
+  const timeTip = !from && !to ? '时间不定' : `时间 ${from || '不定'} ~ ${to || '不定'}`
+  const compactDate = (value: string) => (value ? value.slice(5) : '不定')
+  const timeValue =
+    from && to && from.slice(0, 4) !== to.slice(0, 4)
+      ? `${from} ~ ${to}`
+      : !from && !to
+        ? '不定'
+        : `${compactDate(from)} ~ ${compactDate(to)}`
+  const countValue =
+    node && node.plannedTotal > 0 ? `${node.doneCount}/${node.plannedTotal}` : '不定'
+  const countTip =
+    node && node.plannedTotal > 0
+      ? `番茄数 ${node.doneCount}/${node.plannedTotal}`
+      : '番茄数不定'
+
+  const idleUnassigned = isUnassigned && phase === 'idle'
+  const shownTitle = idleUnassigned ? '启动一个未命名的番茄钟任务' : title || '未命名专注'
+  const shownDesc = idleUnassigned
+    ? '在此处启动的番茄钟仅被记录时间，请在任务或习惯页面开始番茄钟。'
+    : desc || (isUnassigned ? '这次专注没有任务归属，只记录时间。' : '')
+  const jumpKind = habit ? ('habit' as const) : node ? ('task' as const) : null
+  const hasDetail =
+    Boolean(shownDesc) || Boolean(visibleCountdown) || Boolean(scheduleLabel) || Boolean(quadrant)
 
   return (
     <section className="glass flex items-center gap-3 rounded-panel px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-semibold text-foreground">{title}</p>
-        <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">{desc}</p>
+        <div className="flex min-w-0 items-center gap-2">
+          {!isUnassigned ? <IdentityDot color={color} /> : null}
+          <p className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
+            {shownTitle}
+          </p>
+          {node ? (
+            <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] leading-[16px] tabular-nums text-muted-foreground">
+              <Tip label={timeTip}>
+                <span className="flex items-center gap-1">
+                  <Clock className="size-3" aria-hidden />
+                  <span>{timeValue}</span>
+                </span>
+              </Tip>
+              <Tip label={countTip}>
+                <span className="flex items-center gap-1">
+                  <CircleDot className="size-3" aria-hidden />
+                  <span className={cn(node.plannedTotal > 0 && 'font-mono')}>{countValue}</span>
+                </span>
+              </Tip>
+            </span>
+          ) : streak > 0 ? (
+            <span
+              className="ml-auto shrink-0 text-[10.5px] leading-none text-[#4f7c77]"
+              title={`连续 ${streak} 天（休息与请假跳过）`}
+            >
+              连续 {streak} 天
+            </span>
+          ) : null}
+        </div>
+
+        {hasDetail ? (
+          <div className="mt-0.5 flex min-h-4 min-w-0 items-center gap-1 text-[11.5px] leading-[16px] text-muted-foreground/80">
+            {visibleCountdown ? (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'h-[18px] min-w-0 shrink gap-0.5 border-primary/30 px-1.5 py-0 text-[9.5px] text-primary/90',
+                  visibleCountdown.state === 'today' && 'border-primary/55 text-primary',
+                )}
+              >
+                <span className="truncate">{visibleCountdown.text}</span>
+              </Badge>
+            ) : null}
+            {scheduleLabel ? (
+              <Badge
+                variant="outline"
+                className="h-[18px] shrink-0 whitespace-nowrap border-primary/30 px-1.5 py-0 text-[9.5px] text-primary/90"
+              >
+                {scheduleLabel}
+                {scheduleCountdown ? <span className="text-primary/90"> · {scheduleCountdown}</span> : null}
+              </Badge>
+            ) : null}
+            {quadrant ? (
+              <Badge
+                variant="outline"
+                title={`四象限：${quadrant.name}`}
+                className={cn('h-[18px] shrink-0 px-1.5 py-0 text-[9.5px]', quadrant.badge)}
+              >
+                {quadrant.short}
+              </Badge>
+            ) : null}
+            {shownDesc ? (
+              <Tip
+                side="top"
+                align="start"
+                label={
+                  <span className="block max-w-[420px] whitespace-normal break-words text-left leading-[18px]">
+                    {shownDesc}
+                  </span>
+                }
+              >
+                <span className="min-w-0 flex-1 truncate">{shownDesc}</span>
+              </Tip>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       {jumpKind ? (
         <button
@@ -495,13 +653,25 @@ function FocusBanner({
           title={jumpKind === 'habit' ? '打开习惯' : '打开任务'}
           className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md outline-none transition-colors hover:bg-primary/10 focus-visible:ring-[3px] focus-visible:ring-ring/40"
         >
-          <Icon className={cn('size-6', tone)} strokeWidth={2.2} aria-hidden />
+          <Icon className="size-6 text-primary" strokeWidth={2.2} aria-hidden />
         </button>
       ) : (
         <span className="flex size-9 shrink-0 items-center justify-center" aria-hidden>
-          <Icon className={cn('size-6', tone)} strokeWidth={2.2} />
+          <Icon className="size-6 text-primary" strokeWidth={2.2} />
         </span>
       )}
     </section>
+  )
+}
+
+/** 任务/习惯的身份色圆点：与习惯卡标题前那枚 15px 大圆点同款 */
+function IdentityDot({ color }: { color: string }) {
+  return (
+    <span className="relative size-2.5 shrink-0" aria-hidden>
+      <span
+        className="absolute left-1/2 top-1/2 size-[15px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-foreground/10"
+        style={{ background: color }}
+      />
+    </span>
   )
 }

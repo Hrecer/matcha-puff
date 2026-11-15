@@ -61,11 +61,25 @@ let state: FocusStoreState = {
 
 const listeners = new Set<() => void>()
 
+/** 快照代次：每收到一次推送就 +1，用来丢掉比推送更旧的主动查询结果 */
+let snapshotGeneration = 0
+/** 最近一次收到快照的时间（毫秒）；活跃相位靠它判断 tick 是否中断 */
+let lastSnapshotAt = 0
+
 function emit(patch: Partial<FocusStoreState>): void {
   const prev = state
   state = { ...state, ...patch }
+  if (patch.snapshot) {
+    snapshotGeneration += 1
+    lastSnapshotAt = Date.now()
+  }
   if (state.snapshot) {
-    syncPhaseAudio(prev.snapshot?.phase ?? 'idle', state.snapshot.phase, state.ring)
+    syncPhaseAudio(
+      prev.snapshot?.phase ?? 'idle',
+      state.snapshot.phase,
+      state.ring,
+      prev.ring,
+    )
   }
   for (const listener of listeners) listener()
 }
@@ -103,9 +117,12 @@ function enqueue(pending: PendingFinish): void {
  */
 export async function refreshFocusSnapshot(): Promise<void> {
   if (!state.supported) return
+  const generation = snapshotGeneration
   try {
     const snapshot = await api.getFocusState()
-    if (snapshot) emit({ snapshot, ready: true })
+    // 等待期间已经收到更新的推送：这是次旧查询，不能拿它覆盖新状态
+    // （否则刚好在到点瞬间触发时，会把「时间到」顶回「专注中」）
+    if (snapshot && generation === snapshotGeneration) emit({ snapshot, ready: true })
   } catch {
     // 取不到就保留当前快照，下次获得焦点再补
   }
@@ -135,6 +152,16 @@ export async function initFocusSync(): Promise<void> {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void refreshFocusSnapshot()
     })
+    // 广播是尽力投递：窗口被挂起或渲染进程卡顿时，focus:phase 可能整条丢掉；
+    // 到点后 Rust 不再发 tick，界面就会一直停在最后一条「专注中」快照。
+    // 活跃相位下 tick 断流超过 2.5s 就主动对一次真状态，把漏掉的相位补回来。
+    window.setInterval(() => {
+      const snapshot = state.snapshot
+      if (!snapshot) return
+      if (snapshot.phase !== 'focus' && snapshot.phase !== 'rest') return
+      if (Date.now() - lastSnapshotAt < 2500) return
+      void refreshFocusSnapshot()
+    }, 3000)
     api.onFinished((pending) => {
       if (!dataInitialized) return
       if (pending.completed) {

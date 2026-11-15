@@ -41,7 +41,11 @@ function onTimeUpdate(event: Event) {
 }
 
 export function playNoise(name: string): void {
-  if (isSilent(name) || isSilentWindow()) return
+  if (isSilentWindow()) return
+  if (isSilent(name)) {
+    stopNoise()
+    return
+  }
   stopNoise()
   const audio = new Audio(`${BASE}/noise/${name}.mp3`)
   audio.preload = 'auto'
@@ -148,14 +152,28 @@ export function previewSound(kind: 'noise' | 'notify', name: string, owner: stri
   })
 }
 
-/** 阶段切换时同步声音：专注/休息各用各的白噪音，暂停与结束静音 */
+/**
+ * 阶段切换 / 设置变更时同步声音：专注与休息各用各的白噪音，暂停与结束静音。
+ *
+ * 相位没变也可能是设置页刚改了白噪音：这里直接按新值切换，
+ * 不用等暂停再继续（那只是碰巧让相位变化、重新播放了一次）。
+ */
 export function syncPhaseAudio(
   prevPhase: string,
   nextPhase: string,
   ring: RingSettings,
+  prevRing: RingSettings,
 ): void {
   // 挂件是镜像窗口，音响交给主窗口
   if (isSilentWindow()) return
+  if (prevPhase === nextPhase) {
+    if (nextPhase === 'focus' && prevRing.whiteNoise !== ring.whiteNoise) {
+      playNoise(ring.whiteNoise)
+    } else if (nextPhase === 'rest' && prevRing.restNoise !== ring.restNoise) {
+      playNoise(ring.restNoise)
+    }
+    return
+  }
   if (prevPhase === 'awaiting' && nextPhase !== 'awaiting') stopRing()
   if (nextPhase === 'awaiting' && prevPhase !== 'awaiting') {
     stopNoise()
