@@ -505,6 +505,7 @@ function FocusBanner({
     // 休息时只保留「刚完成的是哪一条」：颜色圆点 + 名称，其余信息收起来
     const showIdentity = !isUnassigned && title.trim().length > 0
     return (
+      // 所有相位共用同一个两行结构：标题行 + 固定 18px 明细行，卡片高度不随状态变化
       <section className="glass flex items-center gap-3 rounded-panel px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {showIdentity ? <IdentityDot color={color} /> : null}
@@ -512,7 +513,7 @@ function FocusBanner({
             <p className="truncate text-[13px] font-semibold text-foreground">
               {showIdentity ? title : '休息时间到啦！'}
             </p>
-            <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
+            <p className="mt-0.5 truncate text-[11.5px] leading-[18px] text-muted-foreground">
               {showIdentity ? '刚完成这一段，休息一下。' : '当前为休息时间，请注意休息！'}
             </p>
           </div>
@@ -562,10 +563,9 @@ function FocusBanner({
     ? '在此处启动的番茄钟仅被记录时间，请在任务或习惯页面开始番茄钟。'
     : desc || (isUnassigned ? '这次专注没有任务归属，只记录时间。' : '')
   const jumpKind = habit ? ('habit' as const) : node ? ('task' as const) : null
-  const hasDetail =
-    Boolean(shownDesc) || Boolean(visibleCountdown) || Boolean(scheduleLabel) || Boolean(quadrant)
 
   return (
+    // 明细行始终占位（固定 18px）：有没有徽标、简介，卡片高度都一致
     <section className="glass flex items-center gap-3 rounded-panel px-4 py-3">
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
@@ -598,52 +598,50 @@ function FocusBanner({
           ) : null}
         </div>
 
-        {hasDetail ? (
-          <div className="mt-0.5 flex min-h-4 min-w-0 items-center gap-1 text-[11.5px] leading-[16px] text-muted-foreground/80">
-            {visibleCountdown ? (
-              <Badge
-                variant="outline"
-                className={cn(
-                  'h-[18px] min-w-0 shrink gap-0.5 border-primary/30 px-1.5 py-0 text-[9.5px] text-primary/90',
-                  visibleCountdown.state === 'today' && 'border-primary/55 text-primary',
-                )}
-              >
-                <span className="truncate">{visibleCountdown.text}</span>
-              </Badge>
-            ) : null}
-            {scheduleLabel ? (
-              <Badge
-                variant="outline"
-                className="h-[18px] shrink-0 whitespace-nowrap border-primary/30 px-1.5 py-0 text-[9.5px] text-primary/90"
-              >
-                {scheduleLabel}
-                {scheduleCountdown ? <span className="text-primary/90"> · {scheduleCountdown}</span> : null}
-              </Badge>
-            ) : null}
-            {quadrant ? (
-              <Badge
-                variant="outline"
-                title={`四象限：${quadrant.name}`}
-                className={cn('h-[18px] shrink-0 px-1.5 py-0 text-[9.5px]', quadrant.badge)}
-              >
-                {quadrant.short}
-              </Badge>
-            ) : null}
-            {shownDesc ? (
-              <Tip
-                side="top"
-                align="start"
-                label={
-                  <span className="block max-w-[420px] whitespace-normal break-words text-left leading-[18px]">
-                    {shownDesc}
-                  </span>
-                }
-              >
-                <span className="min-w-0 flex-1 truncate">{shownDesc}</span>
-              </Tip>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="mt-0.5 flex h-[18px] min-w-0 items-center gap-1 text-[11.5px] leading-[16px] text-muted-foreground/80">
+          {visibleCountdown ? (
+            <Badge
+              variant="outline"
+              className={cn(
+                'h-[18px] min-w-0 shrink gap-0.5 border-primary/30 px-1.5 py-0 text-[9.5px] text-primary/90',
+                visibleCountdown.state === 'today' && 'border-primary/55 text-primary',
+              )}
+            >
+              <span className="truncate">{visibleCountdown.text}</span>
+            </Badge>
+          ) : null}
+          {scheduleLabel ? (
+            <Badge
+              variant="outline"
+              className="h-[18px] shrink-0 whitespace-nowrap border-primary/30 px-1.5 py-0 text-[9.5px] text-primary/90"
+            >
+              {scheduleLabel}
+              {scheduleCountdown ? <span className="text-primary/90"> · {scheduleCountdown}</span> : null}
+            </Badge>
+          ) : null}
+          {quadrant ? (
+            <Badge
+              variant="outline"
+              title={`四象限：${quadrant.name}`}
+              className={cn('h-[18px] shrink-0 px-1.5 py-0 text-[9.5px]', quadrant.badge)}
+            >
+              {quadrant.short}
+            </Badge>
+          ) : null}
+          {shownDesc ? (
+            <Tip
+              side="top"
+              align="start"
+              label={
+                <span className="block max-w-[420px] whitespace-normal break-words text-left leading-[18px]">
+                  {shownDesc}
+                </span>
+              }
+            >
+              <span className="min-w-0 flex-1 truncate">{shownDesc}</span>
+            </Tip>
+          ) : null}
+        </div>
       </div>
       {jumpKind ? (
         <button
