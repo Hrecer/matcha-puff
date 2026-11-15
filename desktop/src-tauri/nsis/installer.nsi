@@ -901,12 +901,24 @@ Section Uninstall
     DeleteRegKey HKCU "${UNINSTKEY}"
   !endif
 
-  ; Removes the Autostart entry for ${PRODUCTNAME} from the HKCU Run key if it exists.
+  ; Removes the Autostart entries if they exist.
   ; This ensures the program does not launch automatically after uninstallation if it exists.
   ; If it doesn't exist, it does nothing.
   ; We do this when not updating (to preserve the registry value on updates)
+  ;
+  ; 开机自启动由 tauri-plugin-autostart(auto-launch) 写入，值名取的是**二进制名**
+  ; （package_info().name，即 ${MAINBINARYNAME}），不是产品名 ${PRODUCTNAME}；
+  ; 只按产品名删会留下「开机启动一个已删除的 exe」的残留，所以两种值名都删。
+  ; Explorer\StartupApproved\Run 下的同名二进制项也要删：auto-launch 的 disable
+  ; 本身不会清它，卸载时一并处理。HKLM 是尽力而为 —— 当前用户安装的卸载器
+  ; 跑在未提权进程里，写不进去时 DeleteRegValue 也只是静默失败。
   ${If} $UpdateMode <> 1
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${MAINBINARYNAME}"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "${PRODUCTNAME}"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "${MAINBINARYNAME}"
+    DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+    DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Run" "${MAINBINARYNAME}"
   ${EndIf}
 
   ; Delete app data if the checkbox is selected
