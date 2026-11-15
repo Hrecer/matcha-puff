@@ -455,7 +455,8 @@ export function TasksTab({ onStart }: { onStart: (task: TaskRef, minutes: number
       if (progressFilter === 'all') return true
       if (progressFilter === 'done') return node.complete
       if (progressFilter === 'none') return node.plannedTotal <= 0 && !node.complete
-      if (progressFilter === 'idle') return node.plannedTotal > 0 && node.doneCount <= 0
+      // 手动标记完成的任务哪怕一个番茄都没做，也不算「未开始」
+      if (progressFilter === 'idle') return node.plannedTotal > 0 && node.doneCount <= 0 && !node.complete
       return node.plannedTotal > 0 && node.doneCount > 0 && !node.complete
     }
 
@@ -1298,26 +1299,20 @@ export function TasksTab({ onStart }: { onStart: (task: TaskRef, minutes: number
               </Button>
             </Tip>
           )}
-          {/* 没有番茄计划的叶子：完成与否由用户自己决定，否则事件型任务永远收不了尾 */}
-          {!isContainer && node.plannedTotal <= 0 ? (
-            <Tip label={complete ? '撤销完成' : '标记完成'}>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                className="size-5"
-                aria-label={`${complete ? '撤销完成' : '标记完成'} ${task.title}`}
-                onClick={() => {
-                  if (holdsRunningTask(task.id)) {
-                    toast('计时进行中，请先停止计时再修改完成状态', 'error')
-                    return
-                  }
-                  void toggleTaskDone(task.id, !complete)
-                }}
-              >
-                {complete ? <RotateCcw className="size-3" aria-hidden /> : <Check className="size-3" aria-hidden />}
-              </Button>
-            </Tip>
-          ) : null}
+          {/* 标记完成 / 撤销完成：每一行都有，不看有没有番茄计划、是不是父任务，
+              也不管当前是已完成还是未完成、是不是正在计时 —— 完成与否最终由用户自己拍板。
+              父任务会连同整棵子树一起写，父子状态始终一致；重复点就是来回切换。 */}
+          <Tip label={complete ? '撤销完成' : '标记完成'}>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              className="size-5"
+              aria-label={`${complete ? '撤销完成' : '标记完成'} ${task.title}`}
+              onClick={() => void toggleTaskDone(task.id, !complete)}
+            >
+              {complete ? <RotateCcw className="size-3" aria-hidden /> : <Check className="size-3" aria-hidden />}
+            </Button>
+          </Tip>
           <Tip label="编辑">
             <Button size="icon-xs" variant="ghost" className="size-5" aria-label={`编辑 ${task.title}`} onClick={() => edit(node)}>
               <Pencil className="size-3" aria-hidden />

@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Tip } from '@/components/ui/tooltip'
-import { toast } from '@/components/ui/toast'
 import { HabitFormDialog } from '@/components/focus/HabitFormDialog'
 import { TaskFormDialog, type TaskFormDraft } from '@/components/focus/TaskFormDialog'
 import { displayTaskColor } from '@/components/focus/calendar-utils'
@@ -79,14 +78,12 @@ const compareBoardItems = (a: BoardItem, b: BoardItem): number => {
 
 export function QuadrantTab({ onStart }: { onStart: (task: TaskRef, minutes: number) => void }) {
   const { roots, habits, ready } = useFocusData()
-  const { config, snapshot } = useFocusStore()
+  const { config } = useFocusStore()
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState<TaskFormDraft | null>(null)
   const [habitDraft, setHabitDraft] = useState<Habit | null>(null)
 
   const today = startOfLocalDay(Date.now())
-  const sessionTaskId =
-    snapshot?.task?.id && (snapshot.phase !== 'idle' || snapshot.pending) ? snapshot.task.id : null
 
   const leaves = useMemo(() => {
     const out: LeafRow[] = []
@@ -163,10 +160,6 @@ export function QuadrantTab({ onStart }: { onStart: (task: TaskRef, minutes: num
   }
 
   const toggleDone = (row: LeafRow) => {
-    if (sessionTaskId === row.node.task.id) {
-      toast('计时进行中，请先停止计时再修改完成状态', 'error')
-      return
-    }
     void toggleTaskDone(row.node.task.id, true)
   }
 
@@ -303,7 +296,6 @@ export function QuadrantTab({ onStart }: { onStart: (task: TaskRef, minutes: num
                     const { task } = node
                     const countdown = node.endDate > 0 ? taskCountdown(node.endDate) : null
                     const canStart = !row.overdue
-                    const canManualDone = node.plannedTotal <= 0
                     return (
                       <article
                         key={task.id}
@@ -379,19 +371,19 @@ export function QuadrantTab({ onStart }: { onStart: (task: TaskRef, minutes: num
                               </Button>
                             </Tip>
                           ) : null}
-                          {canManualDone ? (
-                            <Tip label="标记完成">
-                              <Button
-                                size="icon-xs"
-                                variant="ghost"
-                                className="size-5"
-                                aria-label={`标记完成 ${task.title}`}
-                                onClick={() => toggleDone(row)}
-                              >
-                                <Check className="size-3" aria-hidden />
-                              </Button>
-                            </Tip>
-                          ) : null}
+                          {/* 和任务列表一致：填了番茄计划也能手动收尾，不再藏着按钮。
+                              四象限只列未完成的任务，点完这张卡就离开面板。 */}
+                          <Tip label="标记完成">
+                            <Button
+                              size="icon-xs"
+                              variant="ghost"
+                              className="size-5"
+                              aria-label={`标记完成 ${task.title}`}
+                              onClick={() => toggleDone(row)}
+                            >
+                              <Check className="size-3" aria-hidden />
+                            </Button>
+                          </Tip>
                           <Tip label="编辑">
                             <Button
                               size="icon-xs"

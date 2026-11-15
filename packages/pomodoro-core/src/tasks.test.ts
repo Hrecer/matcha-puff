@@ -10,6 +10,7 @@ import {
   moveTask,
   nextOrder,
   removeTaskCascade,
+  setTaskDone,
   type Task,
   type TaskNode,
 } from './tasks'
@@ -265,7 +266,7 @@ describe('删除与归档', () => {
   })
 })
 
-describe('没有番茄计划时的完成判定', () => {
+describe('手动完成标记（所有任务都能用）', () => {
   it('叶子没填计划：只有手动标记才算完成', () => {
     const open = onlyNode([task('a', null)])
     expect(open.complete).toBe(false)
@@ -294,13 +295,57 @@ describe('没有番茄计划时的完成判定', () => {
     expect(all[0]?.percent).toBe(100)
   })
 
-  it('手动标记只对没计划的叶子生效：有计划仍按番茄数判定', () => {
-    const node = onlyNode([task('a', null, { pomodoroTotal: 3, pomodoroCount: 1, done: true })])
+  it('没干预过仍按番茄数自动判定', () => {
+    const node = onlyNode([task('a', null, { pomodoroTotal: 3, pomodoroCount: 1 })])
     expect(node.complete).toBe(false)
     expect(node.percent).toBe(33)
   })
 
+  it('手动标记完成优先于番茄数：没做满也能亲手收尾', () => {
+    const node = onlyNode([task('a', null, { pomodoroTotal: 3, pomodoroCount: 1, done: true })])
+    expect(node.complete).toBe(true)
+  })
+
+  it('手动撤销完成能压住已经做满的番茄数', () => {
+    const node = onlyNode([task('a', null, { pomodoroTotal: 3, pomodoroCount: 3, done: false })])
+    expect(node.complete).toBe(false)
+  })
+
   it('勾完的「无计划」叶子会进归档候选', () => {
     expect(collectCompletedRoots(buildTaskTree([task('a', null, { done: true })])).map((n) => n.task.id)).toEqual(['a'])
+  })
+})
+
+describe('setTaskDone 级联整棵子树', () => {
+  const family = () => [
+    task('root', null),
+    task('a', 'root', { order: 0, pomodoroTotal: 3, pomodoroCount: 0 }),
+    task('mid', 'root', { order: 1 }),
+    task('leaf', 'mid', { pomodoroTotal: 2, pomodoroCount: 2 }),
+    task('other', null, { order: 1 }),
+  ]
+
+  it('父任务标记完成：所有后代一起完成，兄弟分支不受影响', () => {
+    const next = setTaskDone(family(), 'root', true)
+    expect(next.filter((item) => item.done === true).map((item) => item.id)).toEqual([
+      'root', 'a', 'mid', 'leaf',
+    ])
+    expect(next.find((item) => item.id === 'other')?.done).toBeUndefined()
+    const roots = buildTaskTree(next)
+    expect(roots.find((node) => node.task.id === 'root')?.complete).toBe(true)
+    expect(roots.find((node) => node.task.id === 'other')?.complete).toBe(false)
+  })
+
+  it('再撤销完成：整棵回到未完成，包括原本番茄已做满的叶子', () => {
+    const next = setTaskDone(setTaskDone(family(), 'root', true), 'root', false)
+    const roots = buildTaskTree(next)
+    const root = roots.find((node) => node.task.id === 'root')
+    expect(root?.complete).toBe(false)
+    expect(flattenTaskTree([root!]).every(({ node }) => !node.complete)).toBe(true)
+  })
+
+  it('叶子只改自己', () => {
+    const next = setTaskDone(family(), 'a', true)
+    expect(next.filter((item) => item.done === true).map((item) => item.id)).toEqual(['a'])
   })
 })

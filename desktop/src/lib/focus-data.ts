@@ -478,8 +478,8 @@ export async function removeTask(id: string): Promise<void> {
 }
 
 /**
- * 手动完成标记：给「没填番茄数」的叶子用。
- * 有计划的叶子不看这个标记，完成仍按番茄数自动判定。
+ * 手动标记完成 / 撤销完成：任何任务都能用，覆盖番茄数的自动判定。
+ * 传的是目标节点，领域层会连同整棵子树一起写（父完成 = 子全完成）。
  */
 export async function toggleTaskDone(id: string, done: boolean): Promise<void> {
   await writeTasks(setTaskDone(await repo.loadTasks(), id, done))

@@ -32,8 +32,13 @@ export interface Task {
   /** 顶层任务的手动颜色；只有 parentId === null 时有效 */
   color?: string
   /**
-   * 手动完成标记：只对「没有番茄计划」的叶子有意义 —— 没数字可依据时，
-   * 由用户自己在树上勾完成，而不是永远判不出完成。
+   * 手动完成覆盖（三态），**所有任务都可用**，不管有没有番茄计划、是不是容器：
+   * - undefined / 未写：没手动干预，按番茄数（叶子）或子树完成情况（容器）自动判定；
+   * - true：用户手动「标记完成」，强制算完成，哪怕番茄没做满；
+   * - false：用户手动「撤销完成」，强制算未完成，哪怕番茄已做满。
+   *
+   * 写入由 setTaskDone 级联到整棵子树（容器自己也会写上），但容器的完成判定
+   * 仍只按子节点汇总：子节点状态一致了，every 的结果自然就一致。
    */
   done?: boolean
   createdAt: number
@@ -55,7 +60,7 @@ export interface TaskNode {
   endDate: number
   /** 有子即容器，不可直接计时 */
   isContainer: boolean
-  /** 计划数为 0 时不判完成 */
+  /** 手动标记优先，其次按番茄数（叶子）/ 子树（容器）自动判定 */
   complete: boolean
   percent: number
 }
@@ -126,9 +131,10 @@ export function buildTaskTree(tasks: readonly Task[]): TaskNode[] {
       node.doneCount = Math.max(0, node.task.pomodoroCount || 0)
       node.startDate = node.task.startDate || 0
       node.endDate = node.task.endDate || 0
-      // 有计划按番茄数判定；没计划就看手动完成标记
-      node.complete =
-        node.plannedTotal > 0 ? node.doneCount >= node.plannedTotal : Boolean(node.task.done)
+      // 手动标记一律优先：没填计划、番茄没做满、甚至已经自动完成的任务，
+      // 用户都能亲手收尾或撤销；没干预过（done 为 undefined）才退回番茄数判定。
+      const autoComplete = node.plannedTotal > 0 && node.doneCount >= node.plannedTotal
+      node.complete = node.task.done ?? autoComplete
     } else {
       node.isContainer = true
       node.leaves = node.children.flatMap((child) => child.leaves)
@@ -277,9 +283,16 @@ export function removeTaskCascade(tasks: readonly Task[], id: string): Task[] {
   return tasks.filter((task) => !doomed.has(task.id))
 }
 
-/** 手动完成标记（只用于没有番茄计划的叶子） */
+/**
+ * 手动标记完成 / 撤销完成：目标节点及**整棵子树**一起写。
+ *
+ * 父任务的完成是从子树汇总出来的，只写父节点会出现「父已完成、子还没做」的自相矛盾，
+ * 也会让归档把没做完的子任务一并带走；级联写入后所有派生值（完成、逾期、日历、统计）
+ * 仍然只有一套口径。叶子没有后代，退化成只改自己。
+ */
 export function setTaskDone(tasks: readonly Task[], id: string, done: boolean): Task[] {
-  return tasks.map((task) => (task.id === id ? { ...task, done } : task))
+  const subtree = descendantIds(tasks, id)
+  return tasks.map((task) => (subtree.has(task.id) ? { ...task, done } : task))
 }
 
 /** 按层级展开，供树视图渲染（深度从 0 起） */

@@ -386,7 +386,14 @@ async function bumpTask(task: TaskRef, at: number): Promise<void> {
   const index = tasks.findIndex((item) => item.id === task.id)
   if (index < 0) return
   await repo.saveTasks(
-    tasks.map((item, i) => (i === index ? { ...item, pomodoroCount: (item.pomodoroCount || 0) + 1 } : item)),
+    tasks.map((item, i) => {
+      if (i !== index) return item
+      const next = { ...item, pomodoroCount: (item.pomodoroCount || 0) + 1 }
+      // 新的一颗番茄入账后，让自动判定重新接管：之前手动「撤销完成」写下的强制未完成
+      // 不该压住刚做出来的进度。用户手动「标记完成」是明确收尾，保留不动。
+      if (item.done === false) delete next.done
+      return next
+    }),
   )
 }
 
