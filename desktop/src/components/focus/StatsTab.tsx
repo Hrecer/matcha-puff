@@ -23,7 +23,7 @@ import {
 import type { TaskNode } from '@matcha-puff/pomodoro-core'
 import { Button } from '@/components/ui/button'
 import { SectionTitle } from '@/components/ui/section-title'
-import { TodayFocusDonut, type TodayFocusItem } from '@/components/focus/TodayFocusDonut'
+import { hiddenDonutItems, TodayFocusDonut, type TodayFocusItem } from '@/components/focus/TodayFocusDonut'
 import { UNSET_TASK_COLOR, displayTaskColor } from '@/components/focus/calendar-utils'
 import { cn } from 'cn'
 import { useFocusData } from '@/lib/focus-data'
@@ -239,6 +239,9 @@ export function StatsTab() {
     return items
   }, [todayStat, taskColorMap, habitColorMap, habitIds])
 
+  /** 图表折叠掉的 0% 碎屑：提示放进标题行右侧，不额外占一行高度 */
+  const hiddenDonut = useMemo(() => hiddenDonutItems(todayDonutItems), [todayDonutItems])
+
   const monthYear = monthCursor.getFullYear()
   const monthIndex = monthCursor.getMonth()
   const weekStart = startOfMonday(weekCursor)
@@ -389,7 +392,21 @@ export function StatsTab() {
         {/* 跨两行的容器尺寸不变；内部再拆成「环形图」和「专注节奏」两块 */}
         <div className="order-3 flex min-h-0 flex-col gap-3 lg:col-span-3 lg:col-start-3 lg:row-span-2 lg:row-start-1">
           <section className="glass flex shrink-0 flex-col overflow-hidden rounded-panel p-4">
-            <SectionTitle>时间花在哪</SectionTitle>
+            <SectionTitle
+              trailing={
+                hiddenDonut.length > 0 ? (
+                  <span
+                    title={hiddenDonut
+                      .map((item) => `${item.name} · ${Math.round(item.seconds)}秒`)
+                      .join('、')}
+                  >
+                    另有 {hiddenDonut.length} 项 0% 未标注
+                  </span>
+                ) : undefined
+              }
+            >
+              时间花在哪
+            </SectionTitle>
             <div className="mt-2 shrink-0">
               <TodayFocusDonut
                 items={todayDonutItems}

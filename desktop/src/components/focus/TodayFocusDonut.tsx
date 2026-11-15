@@ -40,6 +40,18 @@ function shortDuration(seconds: number): string {
   return rest === 0 ? `${hours}h` : `${hours}h${rest}m`
 }
 
+/**
+ * 占比四舍五入成 0% 的碎屑扇区：圆环照画，但不配引线和悬浮卡片。
+ * 抽成公共函数，图表本身和外壳标题右侧的折叠提示共用同一套口径，不会一边算出来
+ * 折叠了 2 项、另一边只藏了 1 项。全部都是碎屑时返回空数组 —— 退化成全显示，
+ * 免得今天只专注了几十秒时整张图一个标签都没有。
+ */
+export function hiddenDonutItems(items: readonly TodayFocusItem[]): TodayFocusItem[] {
+  const total = Math.max(1, items.reduce((sum, item) => sum + item.seconds, 0))
+  if (!items.some((item) => Math.round((item.seconds / total) * 100) >= 1)) return []
+  return items.filter((item) => Math.round((item.seconds / total) * 100) < 1)
+}
+
 interface LabelLayout {
   item: TodayFocusItem
   frac: number
@@ -53,6 +65,8 @@ interface LabelLayout {
   width: number
   height: number
   percent: number
+  /** 占比太小、显示成 0% 的碎屑：仍画扇区，但不配引线和悬浮卡片 */
+  visible: boolean
 }
 
 /** 估算实际渲染行数，只用于分栏时避让；卡片高度本身由内容撑开 */
@@ -138,6 +152,9 @@ export function TodayFocusDonut({
   const labels = useMemo<LabelLayout[]>(() => {
     const startR = outerR + outerW / 2
     const tickR = startR + LEADER_TICK
+    /** 「0m · 0%」的卡片不携带信息，尺寸却和别的标签一样，会压住相邻标签和圆环：
+     *  扇区仍画，只把它们的引线和卡片收掉；布局避让也只对留下来的标签跑。 */
+    const hiddenIds = new Set(hiddenDonutItems(items).map((item) => item.id))
     let acc = 0
     const entries = items.map((item) => {
       const frac = item.seconds / total
@@ -147,6 +164,7 @@ export function TodayFocusDonut({
       const cos = Math.cos(mid)
       const sin = Math.sin(mid)
       const height = estimateLabelHeight(item.name, labelW)
+      const percent = Math.round(frac * 100)
       return {
         item,
         frac,
@@ -159,13 +177,15 @@ export function TodayFocusDonut({
         ly: clamp(cy + sin * labelR, height / 2 + LABEL_MARGIN, H - height / 2 - LABEL_MARGIN),
         width: labelW,
         height,
-        percent: Math.round(frac * 100),
+        percent,
+        visible: !hiddenIds.has(item.id),
       } satisfies LabelLayout
     })
 
-    // 标签先按扇区角度摆在圆环四周；再微调几像素，保证引线能以水平/垂直段收口
-    const alignConnections = () => {
-      for (const entry of entries) {
+    // 标签先按扇区角度摆在圆环四周；再微调几像素，保证引线能以水平/垂直段收口。
+    // 只调整真正会渲染的标签：隐藏的碎屑不该把可见标签挤开。
+    const alignConnections = (list: LabelLayout[]) => {
+      for (const entry of list) {
         const left = entry.lx - entry.width / 2
         const right = entry.lx + entry.width / 2
         const top = entry.ly - entry.height / 2
@@ -206,11 +226,11 @@ export function TodayFocusDonut({
     }
 
     // 相邻标签重叠时，沿重叠较短的一轴让开一点
-    const separateOverlaps = () => {
-      for (let i = 0; i < entries.length; i += 1) {
-        for (let j = i + 1; j < entries.length; j += 1) {
-          const a = entries[i]!
-          const b = entries[j]!
+    const separateOverlaps = (list: LabelLayout[]) => {
+      for (let i = 0; i < list.length; i += 1) {
+        for (let j = i + 1; j < list.length; j += 1) {
+          const a = list[i]!
+          const b = list[j]!
           const overlapX =
             Math.min(a.lx + a.width / 2, b.lx + b.width / 2) -
             Math.max(a.lx - a.width / 2, b.lx - b.width / 2)
@@ -254,9 +274,10 @@ export function TodayFocusDonut({
       }
     }
 
-    alignConnections()
-    separateOverlaps()
-    alignConnections()
+    const shown = entries.filter((entry) => entry.visible)
+    alignConnections(shown)
+    separateOverlaps(shown)
+    alignConnections(shown)
 
     return entries
   }, [items, total, chartW, labelW, labelR, cx, cy, outerR, outerW])
@@ -275,6 +296,9 @@ export function TodayFocusDonut({
     if (item.kind) onJump?.(item.kind, item.id)
   }
 
+  /** 只有这些项会画引线和悬浮卡片；扇区仍按全部 items 画，专注总时长不丢 */
+  const labelled = labels.filter((entry) => entry.visible)
+
   const activeItem = activeId ? labels.find((entry) => entry.item.id === activeId)?.item : undefined
 
   // 空隙只存在于描边上；命中的是一整圈，按角度折算回对应扇区，跨过空隙也不会掉悬停
@@ -290,11 +314,17 @@ export function TodayFocusDonut({
     )
   }
 
+  /** 悬停到被折叠的碎屑扇区时不点亮任何标签，免得其它卡片一起变淡 */
+  const setHoverAt = (clientX: number, clientY: number, svg: SVGSVGElement) => {
+    const hit = pickAt(clientX, clientY, svg)
+    setActiveId(hit?.visible ? hit.item.id : null)
+  }
+
   return (
     <div ref={wrapRef} className="w-full select-none" onPointerLeave={() => setActiveId(null)}>
       <div className="relative mx-auto h-[300px]" style={{ width: chartW }}>
         <svg viewBox={`0 0 ${chartW} ${H}`} className="absolute inset-0 h-full w-full" aria-hidden>
-          {labels.map((entry) => {
+          {labelled.map((entry) => {
             const on = activeId === entry.item.id
             return (
               <path
@@ -355,11 +385,11 @@ export function TodayFocusDonut({
             pointerEvents="stroke"
             onPointerEnter={(event) => {
               const svg = event.currentTarget.ownerSVGElement
-              if (svg) setActiveId(pickAt(event.clientX, event.clientY, svg)?.item.id ?? null)
+              if (svg) setHoverAt(event.clientX, event.clientY, svg)
             }}
             onPointerMove={(event) => {
               const svg = event.currentTarget.ownerSVGElement
-              if (svg) setActiveId(pickAt(event.clientX, event.clientY, svg)?.item.id ?? null)
+              if (svg) setHoverAt(event.clientX, event.clientY, svg)
             }}
             onPointerLeave={() => setActiveId(null)}
             onClick={(event) => {
@@ -403,7 +433,7 @@ export function TodayFocusDonut({
           </p>
         </div>
 
-        {labels.map((entry) => {
+        {labelled.map((entry) => {
           const on = activeId === entry.item.id
           const clickable = Boolean(entry.item.kind)
           return (
