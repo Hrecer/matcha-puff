@@ -111,9 +111,14 @@ interface TrendPoint {
 
 export function StatsTab() {
   const { statistics, summary: stored, roots, inbox, habits, sessions, ready } = useFocusData()
-  // 任务树不再有「顶层」这一层身份，这里统计整棵树的节点数
+  // 任务树不再有「顶层」这一层身份：展开整棵树，供下面按节点筛选
   const flatTasks = useMemo(() => flattenTaskTree(roots), [roots])
-  const taskCount = flatTasks.length
+  // 顶部「任务」是「进行中」的口径：只数未完成的叶子，
+  // 父容器和已完成任务都不重复计入（同一本书 + 5 章只算还没做的章数）。
+  const taskCount = useMemo(
+    () => flatTasks.filter(({ node }) => !node.isContainer && !node.complete).length,
+    [flatTasks],
+  )
   const now = new Date()
   // 三个趋势口径各有一个游标，页内状态保存在模块里，切换页签不会丢
   const [trendMode, setTrendMode] = useState<TrendMode>(trendMemory.mode)

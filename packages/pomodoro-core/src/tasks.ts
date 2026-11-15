@@ -5,7 +5,8 @@ import type { TaskQuadrant } from './types'
  *
  * 与产品决策一致的约定：
  * - **层级就是类型**：只有任务这一种身份，深度 0 只是顶层。
- * - **有子节点 = 容器**：不可直接计时；番茄数与日期区间全部由后代叶子汇总。
+ * - **有子节点 = 容器**：不可直接计时；番茄数由全部后代叶子汇总，
+ *   日期区间只看未完成叶子（整棵完成时才用全部，保留历史区间）。
  * - **无子节点 = 叶子**：普通任务，可计时，自身的 startDate/endDate/pomodoroTotal 才有意义。
  * - **汇总值不落库**：一律实时算，父子不可能不同步。
  * - **计时与统计只挂在叶子 id 上**：挪动节点只影响祖先的派生值，历史统计一个字不变。
@@ -48,9 +49,9 @@ export interface TaskNode {
   plannedTotal: number
   /** 派生：已完成番茄数 = Σ 叶子 pomodoroCount */
   doneCount: number
-  /** 派生：区间起点 = min(叶子 startDate)，全为空则 0 */
+  /** 派生：区间起点 = min(未完成叶子 startDate)；全部完成时退回全部叶子；全为空则 0 */
   startDate: number
-  /** 派生：区间终点 = max(叶子 endDate)，全为空则 0 */
+  /** 派生：区间终点 = max(未完成叶子 endDate)；全部完成时退回全部叶子；全为空则 0 */
   endDate: number
   /** 有子即容器，不可直接计时 */
   isContainer: boolean
@@ -133,12 +134,17 @@ export function buildTaskTree(tasks: readonly Task[]): TaskNode[] {
       node.leaves = node.children.flatMap((child) => child.leaves)
       node.plannedTotal = node.children.reduce((sum, child) => sum + child.plannedTotal, 0)
       node.doneCount = node.children.reduce((sum, child) => sum + child.doneCount, 0)
-      const starts = node.children.map((child) => child.startDate).filter((value) => value > 0)
-      const ends = node.children.map((child) => child.endDate).filter((value) => value > 0)
-      node.startDate = starts.length > 0 ? Math.min(...starts) : 0
-      node.endDate = ends.length > 0 ? Math.max(...ends) : 0
       // 容器：后代全部完成才算完成
       node.complete = node.children.every((child) => child.complete)
+      // 时间只由「未完成」的子任务决定：已完成的子任务不再把父任务撑出截止日。
+      // 整棵子树都完成时退回全部子任务，保留历史区间（归档、收件箱仍要用）。
+      const dateChildren = node.complete
+        ? node.children
+        : node.children.filter((child) => !child.complete)
+      const starts = dateChildren.map((child) => child.startDate).filter((value) => value > 0)
+      const ends = dateChildren.map((child) => child.endDate).filter((value) => value > 0)
+      node.startDate = starts.length > 0 ? Math.min(...starts) : 0
+      node.endDate = ends.length > 0 ? Math.max(...ends) : 0
     }
 
     node.percent =

@@ -948,7 +948,7 @@ export function TasksTab({ onStart }: { onStart: (task: TaskRef, minutes: number
 
   /**
    * 逾期按每条任务自己的汇总截止日独立判断，不向上传染。
-   * 容器的截止日由子任务汇总而来，只有这个汇总日期也过期了才显示「已逾期」；
+   * 容器的截止日由未完成子任务汇总而来；已完成的子任务不再把父任务拖成逾期。
    * 单个子任务过期不会让整条父任务跟着变红。
    * 判定和归档共用一份（focus-data 的 overdueTaskIds），两边口径不会走偏。
    */
@@ -964,17 +964,17 @@ export function TasksTab({ onStart }: { onStart: (task: TaskRef, minutes: number
     const { task } = node
     const isContainer = node.isContainer
     const complete = node.complete
-    // 逾期只看自己的汇总截止日（见 overdueIds）：容器判断的是子任务汇总出的最晚截止日是否已过
+    // 逾期只看自己的汇总截止日（见 overdueIds）：容器判断的是未完成子任务汇总出的最晚截止日是否已过
     const overdue = overdueIds.has(task.id)
-    // 倒数是结束日的展示，不另存字段；容器用子任务汇总出的最晚结束日
+    // 倒数是结束日的展示，不另存字段；容器用未完成子任务汇总出的最晚结束日
     const countdown = !complete && node.endDate > 0 ? taskCountdown(node.endDate) : null
     const quadrant = isContainer ? null : quadrantMetaOf(task.quadrant)
     const expandable = node.children.length > 0
     const open = expandable && isOpen(task.id)
     const active = drop?.id === task.id ? drop : null
-    // 时间与番茄数一律显示汇总值：容器（有子任务）的这两栏由 buildTaskTree 自底向上算好
-    // —— 开始取子任务里最早的、结束取最晚的、番茄数求和 —— 不再强制写成「不定」。
-    // 只有两端都没设、或番茄数为 0 时才写「不定」（不空着、也不写「未设置」）。
+    // 时间与番茄数一律显示汇总值：容器（有子任务）的番茄数是全部后代之和；
+    // 时间只取未完成子任务里最早的开始 / 最晚的结束，已完成的子任务不再参与。
+    // 整棵完成时退回全部历史区间；两端都没设、或番茄数为 0 时才写「不定」。
     const from = toDateInput(node.startDate)
     const to = toDateInput(node.endDate)
     const timeTip = !from && !to ? '时间不定' : `时间 ${from || '不定'} ~ ${to || '不定'}`

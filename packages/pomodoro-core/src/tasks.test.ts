@@ -63,9 +63,59 @@ describe('buildTaskTree', () => {
     // 父自身填的 99 个番茄 / 自己的日期一律不参与
     expect(root.plannedTotal).toBe(5)
     expect(root.doneCount).toBe(4)
+    // 已完成子任务 a 的日期不参与；区间取未完成的 b
     expect(root.startDate).toBe(3 * DAY)
     expect(root.endDate).toBe(9 * DAY)
     expect(root.complete).toBe(false)
+  })
+
+  it('容器时间只看未完成子任务：已完成日期不再撑出上级截止日', () => {
+    const root = onlyNode([
+      task('root', null),
+      task('done', 'root', { order: 0, pomodoroTotal: 1, pomodoroCount: 1, startDate: 11 * DAY, endDate: 11 * DAY }),
+      task('open', 'root', { order: 1, pomodoroTotal: 1 }),
+    ])
+    // 唯一有日期的是已完成子任务，未完成子任务没日期 → 上级时间不定
+    expect(root.startDate).toBe(0)
+    expect(root.endDate).toBe(0)
+    // 番茄进度仍按全部子任务汇总（含已完成）
+    expect(root.plannedTotal).toBe(2)
+    expect(root.doneCount).toBe(1)
+    expect(root.complete).toBe(false)
+  })
+
+  it('容器时间只看未完成子任务：已完成的日期不参与 min/max', () => {
+    const root = onlyNode([
+      task('root', null),
+      task('done', 'root', { order: 0, pomodoroTotal: 1, pomodoroCount: 1, startDate: 1 * DAY, endDate: 2 * DAY }),
+      task('open', 'root', { order: 1, pomodoroTotal: 1, startDate: 5 * DAY, endDate: 6 * DAY }),
+    ])
+    expect(root.startDate).toBe(5 * DAY)
+    expect(root.endDate).toBe(6 * DAY)
+  })
+
+  it('整棵子树完成时保留全部叶子的历史区间', () => {
+    const root = onlyNode([
+      task('root', null),
+      task('a', 'root', { order: 0, pomodoroTotal: 1, pomodoroCount: 1, startDate: 3 * DAY, endDate: 4 * DAY }),
+      task('b', 'root', { order: 1, pomodoroTotal: 1, pomodoroCount: 1, startDate: 7 * DAY, endDate: 9 * DAY }),
+    ])
+    expect(root.complete).toBe(true)
+    expect(root.startDate).toBe(3 * DAY)
+    expect(root.endDate).toBe(9 * DAY)
+  })
+
+  it('嵌套容器：未完成分支没日期时，上级不会继承已完成分支的日期', () => {
+    const root = onlyNode([
+      task('root', null),
+      task('doneBranch', 'root', { order: 0 }),
+      task('doneLeaf', 'doneBranch', { pomodoroTotal: 1, pomodoroCount: 1, startDate: 1 * DAY, endDate: 2 * DAY }),
+      task('openBranch', 'root', { order: 1 }),
+      task('openLeaf', 'openBranch', { pomodoroTotal: 1 }),
+    ])
+    expect(root.complete).toBe(false)
+    expect(root.startDate).toBe(0)
+    expect(root.endDate).toBe(0)
   })
 
   it('多层：孙节点也汇总到根', () => {
