@@ -197,9 +197,10 @@ function TimerTab() {
 
   const phase = snapshot?.phase ?? 'idle'
   const running = phase === 'focus'
-  const resting = phase === 'rest'
   const paused = phase === 'paused'
-  const inRest = resting || (paused && snapshot?.pausedFrom === 'rest')
+  // 休息中暂停仍属休息：横幅、圆环、状态文字都要保持休息态，别退回专注番茄那套。
+  // 暂停由按钮「继续休息」表达；口径与挂件、托盘、工作台、停止确认一致。
+  const resting = phase === 'rest' || (paused && snapshot?.pausedFrom === 'rest')
   /** 专注走完、等用户确认：不计时、不自动进休息 */
   const awaiting = phase === 'awaiting'
   const liveTask = snapshot?.task ?? UNASSIGNED_TASK
@@ -374,7 +375,7 @@ function TimerTab() {
               onClick={() => void resumeFocus()}
             >
               <Play className="size-4" aria-hidden />
-              继续
+              {resting ? '继续休息' : '继续'}
             </Button>
           ) : (
             <Button
@@ -388,7 +389,7 @@ function TimerTab() {
             </Button>
           )}
 
-          {inRest ? (
+          {resting ? (
             <Button
               size="lg"
               variant="outline"
@@ -408,7 +409,7 @@ function TimerTab() {
               onClick={requestStopConfirm}
             >
               <Square className="size-3.5" aria-hidden />
-              {inRest ? '停止休息' : '停止'}
+              {resting ? '停止休息' : '停止'}
             </Button>
           ) : null}
         </div>

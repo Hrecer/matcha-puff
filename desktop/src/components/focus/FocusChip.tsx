@@ -72,10 +72,10 @@ export function FocusChip() {
 
   const phase = snapshot.phase
   const running = phase === 'focus'
-  const resting = phase === 'rest'
   const paused = phase === 'paused'
   const awaiting = phase === 'awaiting'
-  const inRest = resting || (paused && snapshot.pausedFrom === 'rest')
+  // 休息中暂停仍属休息：圆点、图标、状态文案都要留在休息态，口径同挂件与托盘
+  const resting = phase === 'rest' || (paused && snapshot.pausedFrom === 'rest')
   const remain = formatRemain(snapshot.remainMs)
   const taskName = snapshot.task?.name ?? ''
   const dotClass = running || awaiting
@@ -181,7 +181,7 @@ export function FocusChip() {
             ) : paused ? (
               <Button size="sm" onClick={() => void resumeFocus()}>
                 <Play className="size-3.5" aria-hidden />
-                继续
+                {resting ? '继续休息' : '继续'}
               </Button>
             ) : (
               <Button size="sm" variant="outline" onClick={() => void pauseFocus()}>
@@ -190,7 +190,7 @@ export function FocusChip() {
               </Button>
             )}
 
-            {inRest ? (
+            {resting ? (
               <Button size="sm" variant="outline" onClick={() => void skipCurrentRest()}>
                 <SkipForward className="size-3.5" aria-hidden />
                 跳过休息
@@ -214,7 +214,7 @@ export function FocusChip() {
                 }}
               >
                 <Square className="size-3" aria-hidden />
-                {inRest ? '停止休息' : '停止'}
+                {resting ? '停止休息' : '停止'}
               </Button>
             )}
 
