@@ -288,7 +288,14 @@ export function FocusWidget() {
             )}
           </WidgetButton>
           {focusing ? (
-            <WidgetButton label="提前完成" onClick={() => act('ask-early-done')}>
+            <WidgetButton
+              label="提前完成"
+              onClick={() => {
+                // 和「停止」一样先唤起主窗口，再让主窗口弹确认框
+                invoke('show_main_window').catch(() => {})
+                act('ask-early-done')
+              }}
+            >
               <Check className="size-3" aria-hidden />
             </WidgetButton>
           ) : null}

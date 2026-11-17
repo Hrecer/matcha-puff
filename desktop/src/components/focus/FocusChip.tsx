@@ -199,7 +199,11 @@ export function FocusChip() {
                 onClick={() => {
                   setOpen(false)
                   if (mainWindow) requestEarlyDoneConfirm()
-                  else emit('focus:quick_action', { action: 'ask-early-done' }).catch(() => {})
+                  else {
+                    // 工具子窗没有确认宿主：先唤起主窗口，再把请求递过去
+                    invoke('show_main_window').catch(() => {})
+                    emit('focus:quick_action', { action: 'ask-early-done' }).catch(() => {})
+                  }
                 }}
               >
                 <Check className="size-3.5" aria-hidden />

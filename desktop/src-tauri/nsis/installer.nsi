@@ -1025,6 +1025,11 @@ Function CreateOrUpdateDesktopShortcut
     Return
   ${EndIf}
 
+  ; 桌面已有同名快捷方式就跳过重建，不再多出一个图标
+  IfFileExists "$DESKTOP\${PRODUCTNAME}.lnk" 0 create_desktop_shortcut
+    Return
+  create_desktop_shortcut:
+
   ; Skip creating shortcut if in update mode or no shortcut mode
   ; but always create if migrating from wix
   ${If} $WixMode = 0

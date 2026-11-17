@@ -75,7 +75,11 @@ export function TrayMenu() {
           <MenuRow
             icon={Check}
             label="提前完成"
-            onClick={pick(() => emit('focus:quick_action', { action: 'ask-early-done' }))}
+            onClick={pick(() => {
+              // 先唤起主窗口再递确认：窗口最小化或在别的桌面时，弹窗不能落在隐藏窗口里
+              invoke('show_main_window').catch(() => {})
+              emit('focus:quick_action', { action: 'ask-early-done' }).catch(() => {})
+            })}
           />
         ) : null}
         {resting ? (
