@@ -15,6 +15,7 @@ import {
   useFocusStore,
 } from '@/lib/focus-store'
 import { requestStopConfirm } from '@/lib/focus-stop-ask'
+import { requestEarlyDoneConfirm } from '@/lib/focus-early-ask'
 import {
   hideWidget,
   initWidgetVisibility,
@@ -76,6 +77,7 @@ export function FocusChip() {
   const awaiting = phase === 'awaiting'
   // 休息中暂停仍属休息：圆点、图标、状态文案都要留在休息态，口径同挂件与托盘
   const resting = phase === 'rest' || (paused && snapshot.pausedFrom === 'rest')
+  const focusing = running || (paused && snapshot.pausedFrom === 'focus')
   const remain = formatRemain(snapshot.remainMs)
   const taskName = snapshot.task?.name ?? ''
   const dotClass = running || awaiting
@@ -189,6 +191,21 @@ export function FocusChip() {
                 暂停
               </Button>
             )}
+
+            {focusing ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setOpen(false)
+                  if (mainWindow) requestEarlyDoneConfirm()
+                  else emit('focus:quick_action', { action: 'ask-early-done' }).catch(() => {})
+                }}
+              >
+                <Check className="size-3.5" aria-hidden />
+                提前完成
+              </Button>
+            ) : null}
 
             {resting ? (
               <Button size="sm" variant="outline" onClick={() => void skipCurrentRest()}>

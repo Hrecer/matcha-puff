@@ -55,6 +55,7 @@ import {
   useFocusStore,
 } from '@/lib/focus-store'
 import { requestStopConfirm } from '@/lib/focus-stop-ask'
+import { requestEarlyDoneConfirm } from '@/lib/focus-early-ask'
 import {
   hideWidget,
   initWidgetVisibility,
@@ -389,6 +390,19 @@ function TimerTab() {
             </Button>
           )}
 
+          {/* 专注进行中或专注暂停时才能提前完成；休息态不显示 */}
+          {!resting && (phase === 'focus' || paused) ? (
+            <Button
+              size="lg"
+              variant="outline"
+              className="has-[>svg]:px-3"
+              onClick={requestEarlyDoneConfirm}
+            >
+              <Check className="size-4" aria-hidden />
+              提前完成
+            </Button>
+          ) : null}
+
           {resting ? (
             <Button
               size="lg"
@@ -508,10 +522,15 @@ function FocusBanner({
     return (
       // 所有相位共用同一个两行结构：标题行 + 固定 18px 明细行，卡片高度不随状态变化
       <section className="glass flex items-center gap-3 rounded-panel px-4 py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          {showIdentity ? <IdentityDot color={color} /> : null}
+        {/* 圆点按第一行行高居中：两行文本整体居中会让它掉到两行之间 */}
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          {showIdentity ? (
+            <span className="flex h-5 shrink-0 items-center">
+              <IdentityDot color={color} />
+            </span>
+          ) : null}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-foreground">
+            <p className="truncate text-[13px] font-semibold leading-5 text-foreground">
               {showIdentity ? title : '休息时间到啦！'}
             </p>
             <p className="mt-0.5 truncate text-[11.5px] leading-[18px] text-muted-foreground">

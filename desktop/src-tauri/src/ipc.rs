@@ -669,6 +669,7 @@ fn focus_command(
             "focus_pause" => focus.pause(now),
             "focus_resume" => focus.resume(now),
             "focus_stop" => focus.stop(now),
+            "focus_finish_early" => focus.finish_early(now),
             "focus_skip_rest" => focus.skip_rest(now),
             "focus_start_rest" => {
                 let minutes = message.get("minutes").and_then(Value::as_i64).unwrap_or(5);
@@ -729,7 +730,7 @@ async fn dispatch_command(
 ) -> Result<Value, String> {
     match cmd {
         "focus_state" | "focus_start" | "focus_pause" | "focus_resume" | "focus_stop"
-        | "focus_skip_rest" | "focus_start_rest" | "focus_ack" => {
+        | "focus_finish_early" | "focus_skip_rest" | "focus_start_rest" | "focus_ack" => {
             focus_command(app, state, cmd, message)
         }
         "pomo_doc_get" | "pomo_doc_set" => pomo_doc_command(state, cmd, message),

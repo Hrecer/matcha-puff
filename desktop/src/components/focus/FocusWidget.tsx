@@ -287,6 +287,11 @@ export function FocusWidget() {
               <Pause className="size-3" aria-hidden />
             )}
           </WidgetButton>
+          {focusing ? (
+            <WidgetButton label="提前完成" onClick={() => act('ask-early-done')}>
+              <Check className="size-3" aria-hidden />
+            </WidgetButton>
+          ) : null}
           {resting ? (
             <WidgetButton label="跳过休息" onClick={() => act('skip')}>
               <SkipForward className="size-3" aria-hidden />

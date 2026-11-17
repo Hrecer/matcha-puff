@@ -54,7 +54,7 @@ pub enum RestKind {
     Long,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskRef {
     pub id: String,
@@ -295,6 +295,50 @@ impl FocusState {
         self.accumulated_ms = 0;
         self.deadline = 0;
         self.release_task();
+    }
+
+    /// 提前完成专注：按实际专注时长做「完成」结算，跳过「时间到」直接进入休息。
+    ///
+    /// 与「停止」的区别是 completed=true（番茄入账、轮次 +1）；与「到点」的区别是
+    /// seconds 取实际累计而非计划时长，且不停在 Awaiting。休息必须沿用当前 task，
+    /// 所以这里绝不 release_task；休息段另起 sessionId，避免和专注结算的去重互相吞。
+    /// autoRest / disableRest 设置一概不拦：用户主动点了「提前完成」就是要进休息。
+    pub fn finish_early(&mut self, now: i64) {
+        let from_focus = self.phase == Phase::Focus
+            || (self.phase == Phase::Paused && self.paused_from == Some(ActivePhase::Focus));
+        if !from_focus {
+            return;
+        }
+
+        let seconds = (self.accumulated_ms / 1000).max(0);
+        self.cycle.completed += 1;
+        self.cycle.last_completed_at = Some(now);
+
+        self.pending = Some(PendingFinish {
+            session_id: self.session_id.clone().unwrap_or_else(|| next_session_id(now)),
+            phase: ActivePhase::Focus,
+            task: self.task.clone(),
+            seconds,
+            completed: true,
+            rest_kind: None,
+            at: now,
+        });
+
+        let kind = rest_kind(self.cycle.completed, self.policy.long_rest_interval);
+        let minutes = match kind {
+            RestKind::Long => self.policy.long_rest_minutes,
+            RestKind::Short => self.policy.rest_minutes,
+        };
+        self.phase = Phase::Rest;
+        self.paused_from = None;
+        self.rest_kind = Some(kind);
+        self.session_id = Some(next_session_id(now));
+        self.duration_ms = minutes.clamp(1, 600) * 60_000;
+        self.deadline = now + self.duration_ms;
+        self.accumulated_ms = 0;
+        self.remaining_ms = 0;
+        self.last_emit_second = -1;
+        self.last_save_ms = 0;
     }
 
     pub fn clear_pending(&mut self) {
@@ -663,6 +707,78 @@ mod tests {
         assert_eq!(b.phase, Phase::Awaiting);
         b.stop(60_000);
         assert_eq!(b.phase, Phase::Idle, "点「知道了」才回到空闲");
+    }
+
+    /// 提前完成：实际时长入账、算一个完成番茄、直接进带任务的休息
+    #[test]
+    fn finish_early_credits_actual_seconds_and_enters_rest_with_task() {
+        let mut state = FocusState::default();
+        let t = task();
+        state.start(25, t.clone(), policy(false), 1_000);
+        tick(&mut state, 1_000 + 600_000);
+        let focus_session = state.session_id.clone().unwrap();
+
+        state.finish_early(1_000 + 600_000);
+
+        assert_eq!(state.phase, Phase::Rest, "提前完成直接进休息，不经过时间到");
+        assert_eq!(state.task, Some(t.clone()), "休息必须沿用当前任务");
+        assert_ne!(state.session_id, Some(focus_session), "休息段要另起 sessionId");
+        assert_eq!(state.rest_kind, Some(RestKind::Short));
+        assert_eq!(state.duration_ms, 5 * 60_000);
+
+        let pending = state.pending.as_ref().expect("应当留下结算");
+        assert_eq!(pending.phase, ActivePhase::Focus);
+        assert!(pending.completed, "必须按完成结算，番茄数 +1");
+        assert_eq!(pending.seconds, 600, "记实际时长而非计划的 25 分钟");
+        assert_eq!(pending.task, Some(t));
+        assert_eq!(state.cycle.completed, 1);
+    }
+
+    /// 暂停中也能提前完成；累计时长不含暂停那段时间
+    #[test]
+    fn finish_early_while_paused_uses_accumulated_seconds() {
+        let mut state = FocusState::default();
+        state.start(25, task(), policy(false), 0);
+        tick(&mut state, 300_000);
+        state.pause(300_000);
+        state.finish_early(3_000_000);
+        assert_eq!(state.phase, Phase::Rest);
+        assert_eq!(state.pending.as_ref().unwrap().seconds, 300);
+    }
+
+    /// 到间隔数时提前完成也进长休，与正常做完一致
+    #[test]
+    fn finish_early_uses_long_rest_when_interval_reached() {
+        let mut state = FocusState::default();
+        state.cycle.completed = 3;
+        state.start(25, task(), policy(false), 0);
+        tick(&mut state, 60_000);
+        state.finish_early(60_000);
+        assert_eq!(state.cycle.completed, 4);
+        assert_eq!(state.rest_kind, Some(RestKind::Long));
+        assert_eq!(state.duration_ms, 15 * 60_000);
+    }
+
+    /// 用户主动点了提前完成就进休息，不受「关闭休息」设置影响
+    #[test]
+    fn finish_early_enters_rest_even_when_rest_disabled() {
+        let mut state = FocusState::default();
+        state.start(1, task(), no_rest_policy(), 0);
+        tick(&mut state, 30_000);
+        state.finish_early(30_000);
+        assert_eq!(state.phase, Phase::Rest);
+    }
+
+    /// 休息态 / 时间到态调用必须无副作用
+    #[test]
+    fn finish_early_ignores_other_phases() {
+        let mut state = FocusState::default();
+        state.start(1, task(), policy(false), 0);
+        let _ = tick(&mut state, 60_000);
+        assert_eq!(state.phase, Phase::Awaiting);
+        state.finish_early(60_000);
+        assert_eq!(state.phase, Phase::Awaiting);
+        assert_eq!(state.pending.as_ref().unwrap().phase, ActivePhase::Focus);
     }
 
     #[test]

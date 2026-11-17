@@ -270,6 +270,18 @@ export async function skipCurrentRest(): Promise<void> {
   emit({ snapshot })
 }
 
+/**
+ * 提前完成专注：番茄按实际专注时长入账（completed=true），直接进入对应当前任务的休息。
+ * 不经过「时间到」响铃态；Rust 一次操作里保留 task 并切到休息，所以休息横幅仍显示这条任务。
+ */
+export async function completeFocusEarly(): Promise<void> {
+  // 上一段还没入账就先补掉，别让新 pending 覆盖旧结算
+  if (state.snapshot?.pending) await consumePending(state.snapshot.pending)
+  const snapshot = await api.finishFocusEarly()
+  emit({ snapshot })
+  if (snapshot.pending) enqueue(snapshot.pending)
+}
+
 /** 手动开始休息：短/长由当前周期计数决定（completed>0 才可能长休）。 */
 export async function startManualRest(): Promise<void> {
   const { config, snapshot } = state
@@ -355,6 +367,10 @@ async function consumePending(pending: PendingFinish): Promise<void> {
 async function maybeAutoNext(pending: PendingFinish): Promise<void> {
   const config = state.config
   if (!config.autoNextPomodoro) return
+  // 已经进了休息/时间到（例如「提前完成」直接切到休息）：此刻再 startFocus
+  // 只会撞上宿主「正在休息中」的提示，绝不能开新专注。
+  const phase = state.snapshot?.phase
+  if (phase === 'rest' || phase === 'paused' || phase === 'awaiting') return
   // 已自动进入休息时，等休息结束再决定
   if (pending.phase === 'focus' && config.autoRest && !config.disableRest) return
 

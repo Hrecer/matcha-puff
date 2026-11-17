@@ -71,6 +71,13 @@ export function TrayMenu() {
           label={primary.label}
           onClick={pick(() => emit('focus:quick_action', { action: primary.action }))}
         />
+        {focusing && !awaiting ? (
+          <MenuRow
+            icon={Check}
+            label="提前完成"
+            onClick={pick(() => emit('focus:quick_action', { action: 'ask-early-done' }))}
+          />
+        ) : null}
         {resting ? (
           <MenuRow
             icon={SkipForward}

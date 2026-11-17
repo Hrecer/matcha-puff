@@ -23,6 +23,9 @@ export const stopFocus = () => invoke<FocusSnapshot>('focus_stop')
 
 export const skipRest = () => invoke<FocusSnapshot>('focus_skip_rest')
 
+/** 提前完成：按实际时长做完成结算，并直接进入对应当前任务的休息 */
+export const finishFocusEarly = () => invoke<FocusSnapshot>('focus_finish_early')
+
 /** 手动开始休息：时长与短/长种类由前端判定后交给宿主计时 */
 export const startRest = (minutes: number, restKind: 'short' | 'long') =>
   invoke<FocusSnapshot>('focus_start_rest', { minutes, restKind })

@@ -30,6 +30,7 @@ import { preloadUiPlugins } from '@/lib/use-ui-plugins'
 import { readSessionState } from '@/lib/session-state'
 import { UNASSIGNED_TASK } from '@matcha-puff/pomodoro-core'
 import {
+  completeFocusEarly,
   getFocusStore,
   initFocusStore,
   pauseFocus,
@@ -41,7 +42,13 @@ import {
 } from '@/lib/focus-store'
 import { About } from '@/pages/About'
 import { FocusStopConfirm } from '@/components/focus/FocusStopConfirm'
+import { ConfirmDialog } from '@/components/focus/ConfirmDialog'
 import { requestStopConfirm } from '@/lib/focus-stop-ask'
+import {
+  closeEarlyDoneConfirm,
+  requestEarlyDoneConfirm,
+  useEarlyDoneConfirmOpen,
+} from '@/lib/focus-early-ask'
 import { FocusPage } from '@/pages/focus/FocusPage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { NoisePage } from '@/pages/noise/NoisePage'
@@ -63,6 +70,7 @@ export function MainWindow() {
   const pathname = location.pathname.replace(/\.html$/, '') || '/'
   const [collapsed, setCollapsed] = useState(false)
   const frame = useFrameState()
+  const earlyDoneOpen = useEarlyDoneConfirmOpen()
   /** 工具页滚动到哪个顶层分类（由页面 scroll spy 回报，驱动分类高亮滑动） */
   const [visibleTopId, setVisibleTopId] = useState<number | undefined>(undefined)
   /** 工具页搜索词：抬到页头，与标题同一行，不再单占一行 */
@@ -127,6 +135,12 @@ export function MainWindow() {
         case 'ask-stop': {
           nav('/focus')
           requestStopConfirm()
+          break
+        }
+        // 挂件 / 托盘 / 工具子窗上的「提前完成」：唤起主窗并弹确认
+        case 'ask-early-done': {
+          nav('/focus')
+          requestEarlyDoneConfirm()
           break
         }
         // 挂件上的「打开」：主窗口直接落到「专注 → 番茄钟」
@@ -580,6 +594,17 @@ export function MainWindow() {
 
       {/* 停止确认挂在窗口层：不管停在哪个页面，按停止都能弹出来 */}
       <FocusStopConfirm />
+      <ConfirmDialog
+        open={earlyDoneOpen}
+        title="提前完成这一段专注？"
+        description="已经走过的时间按实际时长入账，这个番茄记作完成；随后直接进入这一段任务对应的休息，不会再有「时间到」提示。"
+        confirmText="提前完成"
+        confirmVariant="default"
+        onConfirm={() => void completeFocusEarly()}
+        onOpenChange={(next) => {
+          if (!next) closeEarlyDoneConfirm()
+        }}
+      />
     </div>
   )
 }
