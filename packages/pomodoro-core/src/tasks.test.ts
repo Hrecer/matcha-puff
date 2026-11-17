@@ -7,6 +7,7 @@ import {
   descendantIds,
   findTask,
   flattenTaskTree,
+  isPickableTask,
   moveTask,
   nextOrder,
   removeTaskCascade,
@@ -313,6 +314,41 @@ describe('手动完成标记（所有任务都能用）', () => {
 
   it('勾完的「无计划」叶子会进归档候选', () => {
     expect(collectCompletedRoots(buildTaskTree([task('a', null, { done: true })])).map((n) => n.task.id)).toEqual(['a'])
+  })
+})
+
+describe('isPickableTask 可选专注任务', () => {
+  const pickableIds = (tasks: Task[]) =>
+    flattenTaskTree(buildTaskTree(tasks))
+      .filter(({ node }) => isPickableTask(node))
+      .map(({ node }) => node.task.id)
+
+  it('未完成的叶子可选（无计划 / 计划没做满）', () => {
+    expect(pickableIds([task('a', null), task('b', null, { pomodoroTotal: 3, pomodoroCount: 1 })])).toEqual(['a', 'b'])
+  })
+
+  it('容器本身不可选，只列它的未完成叶子', () => {
+    expect(pickableIds([
+      task('root', null),
+      task('open', 'root', { order: 0 }),
+      task('done', 'root', { order: 1, done: true }),
+    ])).toEqual(['open'])
+  })
+
+  it('番茄自动做满的叶子不可选', () => {
+    expect(pickableIds([task('a', null, { pomodoroTotal: 3, pomodoroCount: 3 })])).toEqual([])
+  })
+
+  it('BUG 修复：手动标记完成、番茄没做满的叶子不可选', () => {
+    expect(pickableIds([task('a', null, { pomodoroTotal: 3, pomodoroCount: 1, done: true })])).toEqual([])
+  })
+
+  it('BUG 修复：无计划叶子手动标记完成后不可选', () => {
+    expect(pickableIds([task('a', null, { done: true })])).toEqual([])
+  })
+
+  it('BUG 修复：手动撤销完成、番茄已做满的叶子仍可选', () => {
+    expect(pickableIds([task('a', null, { pomodoroTotal: 3, pomodoroCount: 3, done: false })])).toEqual(['a'])
   })
 })
 

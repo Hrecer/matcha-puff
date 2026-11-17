@@ -315,3 +315,16 @@ export function flattenTaskTree(nodes: readonly TaskNode[]): { node: TaskNode; d
 export function collectCompletedRoots(nodes: readonly TaskNode[]): TaskNode[] {
   return nodes.filter((node) => node.complete)
 }
+
+/**
+ * 能否作为「这次专注的任务」被选中。
+ *
+ * 只有未完成的叶子可选：容器本身不计时（番茄数由后代汇总），已完成的任务
+ * 也不该再出现在选择器里。判定必须以派生的 `complete` 为准 —— 它已把手动
+ * 完成 / 撤销覆盖算进去；直接比 `doneCount/plannedTotal` 会双向出错：
+ * - 手动标记完成但番茄没做满 → 已完成任务混入可选列表；
+ * - 手动撤销完成但番茄已做满 → 想继续做的任务反而选不到。
+ */
+export function isPickableTask(node: TaskNode): boolean {
+  return !node.isContainer && !node.complete
+}

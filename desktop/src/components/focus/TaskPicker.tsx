@@ -6,6 +6,7 @@ import {
   flattenTaskTree,
   habitScheduleLabel,
   isHabitDue,
+  isPickableTask,
 } from '@matcha-puff/pomodoro-core'
 import type { Habit, Task, TaskRef } from '@matcha-puff/pomodoro-core'
 import {
@@ -90,16 +91,15 @@ export function TaskPicker({
   }
 
   /**
-   * 可选任务 = 未做完的叶子。
+   * 可选任务 = 未完成的叶子。
    * 容器（有子节点）的番茄数由后代汇总，所以它自己不出现在这里。
+   * 完成与否统一按派生的 node.complete 判定：手动勾选完成的叶子会被排除，
+   * 即便番茄没做满；手动撤销完成的叶子仍可选，即便番茄已做满。
    */
   const pickable = useMemo(() => {
     const titles = new Map(tasks.map((item) => [item.id, item.title]))
     return flattenTaskTree(buildTaskTree(tasks))
-      .filter(
-        ({ node }) =>
-          !node.isContainer && (node.plannedTotal === 0 || node.doneCount < node.plannedTotal),
-      )
+      .filter(({ node }) => isPickableTask(node))
       .map(({ node }) => {
         const parent = node.task.parentId
         return {
