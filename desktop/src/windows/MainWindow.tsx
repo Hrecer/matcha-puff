@@ -597,7 +597,7 @@ export function MainWindow() {
       <ConfirmDialog
         open={earlyDoneOpen}
         title="提前完成这一段专注？"
-        description="已经走过的时间按实际时长入账，这个番茄记作完成；随后直接进入这一段任务对应的休息，不会再有「时间到」提示。"
+        description="已经走过的时间按实际时长入账，这个番茄记作完成；随后直接进入这一段任务对应的休息。"
         confirmText="提前完成"
         confirmVariant="default"
         onConfirm={() => void completeFocusEarly()}
