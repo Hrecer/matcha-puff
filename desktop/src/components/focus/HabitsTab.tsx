@@ -733,13 +733,32 @@ export function HabitsTab({ onStart }: { onStart: (task: TaskRef, minutes: numbe
     [checkInHabit],
   )
 
-  const excuseDay = useCallback(async (habitId: string, day: string, excused: boolean) => {
-    const ok = await excuseHabitDay(habitId, day, excused)
-    toast(
-      ok ? (excused ? '已标记请假' : '已取消请假') : '操作失败，请重试',
-      ok ? undefined : 'error',
-    )
-  }, [])
+  const excuseDay = useCallback(
+    async (habitId: string, day: string, excused: boolean) => {
+      // 只拦今天；取消请假、历史补请假、未来提前请假都照常。
+      // 正在专注（含暂停）、时间到等待确认、今天已有成功执行记录，都不允许请假。
+      if (excused && day === localDayKey(Date.now())) {
+        const inSession =
+          snapshot?.task?.id === habitId &&
+          (snapshot.phase === 'focus' ||
+            snapshot.phase === 'awaiting' ||
+            (snapshot.phase === 'paused' && snapshot.pausedFrom === 'focus'))
+        const doneToday = habits.some(
+          (item) => item.habit.id === habitId && item.today.state === 'done',
+        )
+        if (inSession || doneToday) {
+          toast('正在专注、时间到或今天已完成，不能标记请假', 'error')
+          return
+        }
+      }
+      const ok = await excuseHabitDay(habitId, day, excused)
+      toast(
+        ok ? (excused ? '已标记请假' : '已取消请假') : '操作失败，请重试',
+        ok ? undefined : 'error',
+      )
+    },
+    [habits, snapshot],
+  )
 
   const undoManual = useCallback(async (habitId: string, day: string) => {
     const ok = await undoHabitManual(habitId, day)
@@ -1346,17 +1365,24 @@ const HabitCard = memo(function HabitCard({
               </Button>
             </Tip>
           ) : null}
-          <Tip label={due ? '开始专注' : '今天不是执行日'}>
-            <Button
-              size="icon-sm"
-              variant={due ? 'default' : 'ghost'}
-              disabled={!due}
-              aria-label="开始专注"
-              onClick={() => onStart(node)}
-            >
+          {today.state === 'excused' ? (
+            // 请假期间完全静默：按钮变灰、点不动，也不给任何悬停提示
+            <Button size="icon-sm" variant="ghost" disabled aria-label="开始专注">
               <Play className="size-3.5" aria-hidden />
             </Button>
-          </Tip>
+          ) : (
+            <Tip label={due ? '开始专注' : '今天不是执行日'}>
+              <Button
+                size="icon-sm"
+                variant={due ? 'default' : 'ghost'}
+                disabled={!due}
+                aria-label="开始专注"
+                onClick={() => onStart(node)}
+              >
+                <Play className="size-3.5" aria-hidden />
+              </Button>
+            </Tip>
+          )}
         </div>
       </div>
 

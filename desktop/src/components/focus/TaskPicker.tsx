@@ -7,6 +7,7 @@ import {
   habitScheduleLabel,
   isHabitDue,
   isPickableTask,
+  localDayKey,
 } from '@matcha-puff/pomodoro-core'
 import type { Habit, Task, TaskRef } from '@matcha-puff/pomodoro-core'
 import {
@@ -18,7 +19,7 @@ import {
 import { SearchInput } from '@/components/ui/search-input'
 import { SlidingSegmented } from '@/components/ui/sliding'
 import { cn } from 'cn'
-import { loadHabits, loadTasks } from '@/lib/focus-repo'
+import { loadHabitDays, loadHabits, loadTasks } from '@/lib/focus-repo'
 import { useFocusStore } from '@/lib/focus-store'
 import { dayContextOf, loadHolidays } from '@/lib/workday'
 
@@ -48,6 +49,8 @@ export function TaskPicker({
   const { config } = useFocusStore()
   const [tasks, setTasks] = useState<Task[]>([])
   const [habits, setHabits] = useState<Habit[]>([])
+  /** 今天已请假的习惯 id：这些整行不出现在选择器里 */
+  const [excusedIds, setExcusedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState<PickerTab>('all')
   const [query, setQuery] = useState('')
@@ -65,12 +68,20 @@ export function TaskPicker({
     setQuery('')
     let alive = true
     setLoading(true)
-    // 连本地节假日表一起读：习惯的「今天该不该做」要靠它
-    Promise.all([loadTasks(), loadHabits(), loadHolidays()])
-      .then(([nextTasks, nextHabits]) => {
+    // 连本地节假日表、每天账一起读：习惯的「今天该不该做 / 是否已请假」要靠它们
+    Promise.all([loadTasks(), loadHabits(), loadHolidays(), loadHabitDays()])
+      .then(([nextTasks, nextHabits, , dayRows]) => {
         if (!alive) return
         setTasks(nextTasks)
         setHabits(nextHabits)
+        const today = localDayKey(Date.now())
+        setExcusedIds(
+          new Set(
+            dayRows
+              .filter((row) => row.day === today && row.state === 'excused')
+              .map((row) => row.habit),
+          ),
+        )
       })
       .catch(() => {
         if (!alive) return
@@ -140,6 +151,7 @@ export function TaskPicker({
   )
 
   const habitRows = habits
+    .filter((habit) => !excusedIds.has(habit.id))
     .map((habit) => {
       const due = isHabitDue(habit, now, day)
       const cycleLabel = habitScheduleLabel(habit)
@@ -163,7 +175,12 @@ export function TaskPicker({
 
   const tabs = TAB_OPTIONS.map((option) => {
     if (option.value === 'tasks') return { ...option, label: `任务 ${pickable.length}` }
-    if (option.value === 'habits') return { ...option, label: `习惯 ${habits.length}` }
+    if (option.value === 'habits') {
+      return {
+        ...option,
+        label: `习惯 ${habits.filter((habit) => !excusedIds.has(habit.id)).length}`,
+      }
+    }
     return option
   })
 

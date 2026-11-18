@@ -238,6 +238,14 @@ export async function startFocus(minutes: number, task: TaskRef = UNASSIGNED_TAS
     )
     return false
   }
+  // 今天请假的习惯不能再开始：所有入口的统一兜底，静默拦下不打扰。
+  if (task.type === 1) {
+    const today = localDayKey(Date.now())
+    const rows = await repo.loadHabitDays()
+    if (rows.some((row) => row.habit === task.id && row.day === today && row.state === 'excused')) {
+      return false
+    }
+  }
   // 上一段还没入账就先补掉，避免开新会话时把旧结算丢掉。
   if (state.snapshot?.pending) await consumePending(state.snapshot.pending)
   // 习惯：开始时只占一条待确认记录，完成时（bumpTask）才置 success。
