@@ -323,14 +323,24 @@ describe('isPickableTask 可选专注任务', () => {
       .filter(({ node }) => isPickableTask(node))
       .map(({ node }) => node.task.id)
 
-  it('未完成的叶子可选（无计划 / 计划没做满）', () => {
-    expect(pickableIds([task('a', null), task('b', null, { pomodoroTotal: 3, pomodoroCount: 1 })])).toEqual(['a', 'b'])
+  it('未完成的叶子可选（计划没做满；时间不定不影响）', () => {
+    expect(pickableIds([
+      task('a', null, { pomodoroTotal: 3 }),
+      task('b', null, { pomodoroTotal: 3, pomodoroCount: 1 }),
+    ])).toEqual(['a', 'b'])
+  })
+
+  it('BUG 修复：番茄数不定（用时没设定）的叶子不可选，只能手动完成', () => {
+    expect(pickableIds([
+      task('a', null),
+      task('b', null, { startDate: 10 * DAY, endDate: 12 * DAY }),
+    ])).toEqual([])
   })
 
   it('容器本身不可选，只列它的未完成叶子', () => {
     expect(pickableIds([
       task('root', null),
-      task('open', 'root', { order: 0 }),
+      task('open', 'root', { order: 0, pomodoroTotal: 2 }),
       task('done', 'root', { order: 1, done: true }),
     ])).toEqual(['open'])
   })
@@ -343,8 +353,8 @@ describe('isPickableTask 可选专注任务', () => {
     expect(pickableIds([task('a', null, { pomodoroTotal: 3, pomodoroCount: 1, done: true })])).toEqual([])
   })
 
-  it('BUG 修复：无计划叶子手动标记完成后不可选', () => {
-    expect(pickableIds([task('a', null, { done: true })])).toEqual([])
+  it('BUG 修复：番茄数不定且手动标记完成的叶子不可选', () => {
+    expect(pickableIds([task('a', null, { pomodoroTotal: 3, done: true })])).toEqual([])
   })
 
   it('BUG 修复：手动撤销完成、番茄已做满的叶子仍可选', () => {

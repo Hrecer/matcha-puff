@@ -93,7 +93,8 @@ export function QuadrantTab({ onStart }: { onStart: (task: TaskRef, minutes: num
           walk(node.children, [...trail, node.task.title])
           continue
         }
-        if (node.complete) continue
+        // 番茄数不定 = 没设定用时，只能手动完成，不能开始专注；时间不定不影响
+        if (node.complete || node.plannedTotal <= 0) continue
         out.push({
           node,
           path: trail.join(' / '),

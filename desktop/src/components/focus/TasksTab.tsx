@@ -1249,9 +1249,10 @@ export function TasksTab({ onStart }: { onStart: (task: TaskRef, minutes: number
               </Button>
             </Tip>
           ) : null}
-          {/* 专注：容器（有子任务，番茄数由后代汇总）、已完成、已逾期一律不显示 ——
-              统一隐藏，不置灰。逾期想专注，先把日期改到不过期 */}
-          {isContainer || complete || overdue ? null : (
+          {/* 专注：容器（有子任务，番茄数由后代汇总）、已完成、已逾期、番茄数不定
+              （用时没设定，只能手动完成）一律不显示 —— 统一隐藏，不置灰。
+              时间不定不影响，起止日期没设照样能专注。逾期想专注，先把日期改到不过期 */}
+          {isContainer || complete || overdue || node.plannedTotal <= 0 ? null : (
             <Tip label="专注">
               <Button
                 size="icon-xs"

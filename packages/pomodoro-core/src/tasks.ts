@@ -324,7 +324,10 @@ export function collectCompletedRoots(nodes: readonly TaskNode[]): TaskNode[] {
  * 完成 / 撤销覆盖算进去；直接比 `doneCount/plannedTotal` 会双向出错：
  * - 手动标记完成但番茄没做满 → 已完成任务混入可选列表；
  * - 手动撤销完成但番茄已做满 → 想继续做的任务反而选不到。
+ *
+ * 另外要求叶子设过番茄数（plannedTotal > 0）：番茄数就是这条任务的预计用时，
+ * 没设定就没有可专注的量，只能手动完成。时间（起止日期）不设不影响，照样可专注。
  */
 export function isPickableTask(node: TaskNode): boolean {
-  return !node.isContainer && !node.complete
+  return !node.isContainer && !node.complete && node.plannedTotal > 0
 }

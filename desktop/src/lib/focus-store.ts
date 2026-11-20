@@ -15,6 +15,7 @@ import {
   createSummary,
   flattenTaskTree,
   habitLogDay,
+  isPickableTask,
   isSameDay,
   localDayKey,
   nextRestKind,
@@ -245,6 +246,15 @@ export async function startFocus(minutes: number, task: TaskRef = UNASSIGNED_TAS
     if (rows.some((row) => row.habit === task.id && row.day === today && row.state === 'excused')) {
       return false
     }
+  }
+  // 番茄数不定（用时没设定）的叶子任务不能开始专注，只能手动完成；所有入口的统一兜底。
+  // 无归属（type 0）只记时间、习惯（type 1）自带时长，都不受这条限制。
+  if (task.type === 2 || task.type === 3) {
+    const tasks = await repo.loadTasks()
+    const entry = flattenTaskTree(buildTaskTree(tasks)).find(
+      (item) => item.node.task.id === task.id,
+    )
+    if (!entry || !isPickableTask(entry.node)) return false
   }
   // 上一段还没入账就先补掉，避免开新会话时把旧结算丢掉。
   if (state.snapshot?.pending) await consumePending(state.snapshot.pending)
