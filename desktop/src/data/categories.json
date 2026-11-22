@@ -35,13 +35,6 @@
   "parent_id": 0
  },
  {
-  "id": 7,
-  "code": "coding-encryption",
-  "icon": "ri-key-line",
-  "name": "加密解密",
-  "parent_id": 3
- },
- {
   "id": 8,
   "code": "coding-encode",
   "icon": "ri-file-code-line",

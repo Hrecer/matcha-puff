@@ -18,12 +18,10 @@
   },
   "dependencies": {
     "@matcha-puff/tool-contracts": "workspace:*",
-    "@types/crypto-js": "^4.2.2",
     "cnchar": "^3.2.6",
     "cnchar-order": "^3.2.6",
     "cnchar-poly": "^3.2.6",
     "cnchar-trad": "^3.2.6",
-    "crypto-js": "^4.2.0",
     "marked": "^16.4.1",
     "pangu": "^10.4.1",
     "qrcode": "^1.5.4",

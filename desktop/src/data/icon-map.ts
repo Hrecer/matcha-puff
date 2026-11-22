@@ -1,7 +1,7 @@
 /**
  * 分类图标映射（Lucide）
  *
- * 分类快照中的 icon 是 ri-* 类名；这里把 28 个分类映射到 Lucide 图标。
+ * 分类快照中的 icon 是 ri-* 类名；这里把 27 个分类映射到 Lucide 图标。
  *
  * 工具磁贴统一用所属分类的图标 + 抹茶浅底，不使用工具自带品牌色：
  * 全 UI 只有一个强调色（抹茶绿）。
@@ -23,7 +23,6 @@ import {
   Globe,
   Headphones,
   Image,
-  KeyRound,
   Languages,
   Palette,
   PenLine,
@@ -39,7 +38,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-/** 分类 id → Lucide 图标（categories.json 全量 28 条） */
+/** 分类 id → Lucide 图标（categories.json 全量 27 条） */
 const CATEGORY_ICONS: Record<number, LucideIcon> = {
   // 顶层
   1: TerminalSquare, // 系统运维
@@ -48,7 +47,6 @@ const CATEGORY_ICONS: Record<number, LucideIcon> = {
   4: Brush, // 设计工具
   5: Sun, // 生活常用
   // 编程工具
-  7: KeyRound, // 加密解密
   8: FileCode, // 编码解码
   9: Code, // 代码
   10: Bug, // 调试

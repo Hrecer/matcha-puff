@@ -11,7 +11,6 @@ import { constellation } from '../constellation/index'
 import { contentType } from '../content-type/index'
 import { currentIp } from '../current-ip/index'
 import { fileBase64 } from '../file-base64/index'
-import { fileHash } from '../file-hash/index'
 import { fullwidthHalfwidth } from '../fullwidth-halfwidth/index'
 import { getColorThief } from '../getcolorthief/index'
 import { gif2frames } from '../gif2frames/index'
@@ -41,7 +40,6 @@ import { simplifiedTraditional } from '../simplified-traditional/index'
 import { specialSymbols } from '../special-symbols/index'
 import { storageSize } from '../storage-size/index'
 import { strokeCount } from '../stroke-count/index'
-import { symmetricCrypto } from '../symmetric-crypto/index'
 import { textAutoSpace } from '../text-auto-space/index'
 import { textDiff } from '../text-diff/index'
 import { textHex } from '../text-hex/index'
@@ -66,7 +64,6 @@ export const builtinPlugins = [
   contentType,
   currentIp,
   fileBase64,
-  fileHash,
   fullwidthHalfwidth,
   getColorThief,
   gif2frames,
@@ -96,7 +93,6 @@ export const builtinPlugins = [
   specialSymbols,
   storageSize,
   strokeCount,
-  symmetricCrypto,
   textAutoSpace,
   textDiff,
   textHex,

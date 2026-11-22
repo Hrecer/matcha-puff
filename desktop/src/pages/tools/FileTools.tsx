@@ -220,40 +220,6 @@ export function FileWorkbench<TResult>({
   )
 }
 
-/** 一行结果 + 复制按钮 */
-export function CopyRow({
-  label,
-  value,
-  copyKey,
-  copy,
-  copied,
-  mono = true,
-}: {
-  label: string
-  value: string
-  copyKey: string
-  copy: (text: string, key: string) => void
-  copied: string | null
-  mono?: boolean
-}) {
-  return (
-    <div className="group flex items-center gap-2 border-b border-border/40 py-1.5 last:border-b-0">
-      <span className="w-20 shrink-0 text-[11px] text-muted-foreground">{label}</span>
-      <span className={cn('min-w-0 flex-1 break-all text-[12px] text-foreground', mono && 'font-mono')}>
-        {value}
-      </span>
-      <button
-        type="button"
-        aria-label={`复制${label}`}
-        onClick={() => copy(value, copyKey)}
-        className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
-      >
-        {copied === copyKey ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
-      </button>
-    </div>
-  )
-}
-
 interface Base64Output {
   mime: string
   bytes: number
@@ -317,47 +283,6 @@ export function FileBase64Tool() {
               <Download />
               下载 Base64 文本
             </Button>
-          </div>
-        </div>
-      )}
-    />
-  )
-}
-
-interface HashOutput {
-  mime: string
-  bytes: number
-  humanSize: string
-  hashes: { algorithm: string; hex: string; length: number }[]
-}
-
-/** 文件哈希校验 */
-export function FileHashTool() {
-  return (
-    <FileWorkbench<HashOutput>
-      toolId="file-hash"
-      hint="选文件，一次算出 MD5 / SHA-1 / SHA-256 三种校验值，点右侧图标复制。"
-      runLabel="算哈希"
-      toggle={{ key: 'uppercase', label: '大写输出', defaultValue: false }}
-      extra={{ algorithms: ['MD5', 'SHA1', 'SHA256'] }}
-      renderResult={(data, copy, copied) => (
-        <div className="flex h-full flex-col">
-          <p className="mb-2 flex shrink-0 items-center gap-2 rounded-md bg-primary/[0.08] px-3 py-2 text-[11.5px] text-foreground/80">
-            <span className="font-mono">{data.mime}</span>
-            <span className="text-muted-foreground">{data.humanSize}</span>
-            <span className="ml-auto text-muted-foreground">{data.bytes} 字节</span>
-          </p>
-          <div className="min-h-0 flex-1 overflow-auto pr-1 scroll-thin">
-            {data.hashes.map((item) => (
-              <CopyRow
-                key={item.algorithm}
-                label={item.algorithm}
-                value={item.hex}
-                copyKey={item.algorithm}
-                copy={copy}
-                copied={copied}
-              />
-            ))}
           </div>
         </div>
       )}

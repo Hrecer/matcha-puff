@@ -1,5 +1,5 @@
 {
-  "count": 52,
+  "count": 50,
   "tools": [
     {
       "id": "base64-image",
@@ -77,13 +77,6 @@
       "version": "1.0.0",
       "category": "webmaster",
       "description": "任意文件转成 Base64 或完整 data URL，可折行，体积与膨胀率一并算好。"
-    },
-    {
-      "id": "file-hash",
-      "name": "计算文件Hash值",
-      "version": "1.0.0",
-      "category": "webmaster",
-      "description": "算文件的 MD5 / SHA-1 / SHA-256 / SHA-512，一次列出多个算法结果，便于核对下载是否完整。"
     },
     {
       "id": "fullwidth-halfwidth",
@@ -287,13 +280,6 @@
       "version": "1.0.0",
       "category": "reporter",
       "description": "统计整段中文的总笔画，并给出每个字的笔画数；非汉字会被跳过。"
-    },
-    {
-      "id": "symmetric-crypto",
-      "name": "对称加密",
-      "version": "1.0.0",
-      "category": "coding",
-      "description": "AES / DES / 3DES / RC4 / Rabbit 的加解密，可选 CBC、ECB、CFB、OFB、CTR 模式与多种填充。"
     },
     {
       "id": "text-auto-space",
