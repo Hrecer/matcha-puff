@@ -1,5 +1,5 @@
 {
-  "count": 53,
+  "count": 52,
   "tools": [
     {
       "id": "base64-image",
@@ -175,13 +175,6 @@
       "version": "1.0.0",
       "category": "life",
       "description": "999 个带名称的颜文字表情，按关键词筛选后一键复制。"
-    },
-    {
-      "id": "m3u8-player",
-      "name": "M3U8播放器",
-      "version": "1.0.0",
-      "category": "life",
-      "description": "输入 HTTP(S) 的 M3U8 或常见视频地址，本地用 hls.js 播放，支持倍速、循环与全屏。"
     },
     {
       "id": "markdown-converter",

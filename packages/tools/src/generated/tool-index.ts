@@ -25,7 +25,6 @@ import { imageViewer } from '../image-viewer/index'
 import { imageWatermark } from '../image-watermark/index'
 import { ipQuery } from '../ip-query/index'
 import { kaomoji } from '../kaomoji/index'
-import { m3u8Player } from '../m3u8-player/index'
 import { markdownConverter } from '../markdown-converter/index'
 import { notes } from '../notes/index'
 import { passwordStrength } from '../password-strength/index'
@@ -81,7 +80,6 @@ export const builtinPlugins = [
   imageWatermark,
   ipQuery,
   kaomoji,
-  m3u8Player,
   markdownConverter,
   notes,
   passwordStrength,

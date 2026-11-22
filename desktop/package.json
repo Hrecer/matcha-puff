@@ -25,7 +25,6 @@
     "cnchar-draw": "^3.2.6",
     "dayjs": "^1.11.13",
     "gifuct-js": "^2.1.2",
-    "hls.js": "^1.7.3",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.58.0",
     "monaco-editor": "^0.57.0",
