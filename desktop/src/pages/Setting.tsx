@@ -30,6 +30,8 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/toast'
 import { FocusSettings } from '@/pages/settings/FocusSettings'
+import { EyeCareSettings } from '@/pages/settings/EyeCareSettings'
+import { EYE_CARE_DEFAULT, initEyeCare, patchEyeCare } from '@/lib/eye-care'
 
 const SETTING_GROUPS: {
   value: string
@@ -55,7 +57,10 @@ const SETTING_GROUPS: {
   {
     value: 'focus',
     label: '专注',
-    panels: [{ value: 'focus', label: '专注设置' }],
+    panels: [
+      { value: 'focus', label: '专注设置' },
+      { value: 'eyecare', label: '护眼模式' },
+    ],
   },
 ]
 
@@ -136,6 +141,7 @@ export function Setting() {
   // 标签从会话记忆恢复时列表还没请求过，挂载后补一次（常规设置等无列表的标签是空操作）
   useEffect(() => {
     loadList(tab, 'official')
+    initEyeCare()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -187,6 +193,8 @@ export function Setting() {
       await saveConfig({ ...DEFAULT_CONFIG })
       await saveRing({ ...DEFAULT_RING })
       await refreshFocusSettings()
+      // 护眼也回到出厂值：关掉遮罩，强度与时段复位
+      await patchEyeCare({ ...EYE_CARE_DEFAULT }).catch(() => {})
       // 开机启动跟着关掉；这些外部副作用失败不阻塞其余恢复
       await invoke('plugin:autostart|disable').catch(() => {})
       setConf({ ...DEFAULT_CONF })
@@ -469,6 +477,7 @@ export function Setting() {
         )}
 
         {tab === 'focus' && <FocusSettings />}
+        {tab === 'eyecare' && <EyeCareSettings />}
 
         {tab === 'data' && (
           <div className="flex max-w-2xl flex-col gap-7 px-6 py-7">

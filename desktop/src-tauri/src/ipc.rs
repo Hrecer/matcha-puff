@@ -768,6 +768,7 @@ async fn dispatch_command(
                 .map_err(|e| e.to_string())?;
             }
             crate::conf::save(&crate::conf::AppConf::default())?;
+            crate::eyecare::reset()?;
             let snapshot = state
                 .focus
                 .lock()
@@ -798,6 +799,15 @@ async fn dispatch_command(
             Ok(text.map(|t| json!(t)).unwrap_or(Value::Null))
         }
         "get_app_conf" => serde_json::to_value(crate::conf::load()).map_err(|e| e.to_string()),
+        // 护眼遮罩：状态与增量更新（开关只送 { enabled }）
+        "eyecare_state" => {
+            serde_json::to_value(crate::eyecare::state()).map_err(|e| e.to_string())
+        }
+        "eyecare_set" => {
+            let patch = message.get("data").cloned().unwrap_or(Value::Null);
+            let next = crate::eyecare::update(&patch)?;
+            serde_json::to_value(next).map_err(|e| e.to_string())
+        }
         "set_app_conf" => {
             let data = message.get("data").cloned().unwrap_or(Value::Null);
             let conf: crate::conf::AppConf =

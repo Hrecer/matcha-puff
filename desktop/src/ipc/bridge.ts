@@ -156,6 +156,25 @@ export interface AppConf {
 export const getConf = () => invoke<AppConf>('get_app_conf')
 export const saveConf = (conf: AppConf) => invoke<AppConf>('set_app_conf', { data: conf })
 export const getAppVersion = () => invokeModule<string>('App', { cmd: 'getAppVersion' })
+
+/** 护眼遮罩状态 */
+export interface EyeCareState {
+  enabled: boolean
+  /** 浓度档位 1..=5 */
+  strength: number
+  /** always = 持续开启；scheduled = 只在设定时段内生效 */
+  mode: 'always' | 'scheduled'
+  /** 定时开始：当天第几分钟 */
+  start_minute: number
+  /** 定时结束：当天第几分钟，可小于开始时间表示跨午夜 */
+  end_minute: number
+}
+
+export const getEyeCare = () => invoke<EyeCareState>('eyecare_state')
+/** 增量更新：只送要改的字段，其余保持原样 */
+export const setEyeCare = (patch: Partial<EyeCareState>) =>
+  invoke<EyeCareState>('eyecare_set', { data: patch })
+
 export const searchCommandByCode = (code: string) => invoke<CommandItem[]>('search_command_by_code', { code })
 /**
  * 读剪贴板（走宿主直连命令 read_clipboard）
@@ -287,6 +306,14 @@ const mockConf: AppConf = {
   home_page: 'index',
 }
 
+const mockEyeCare: EyeCareState = {
+  enabled: false,
+  strength: 2,
+  mode: 'always',
+  start_minute: 1080,
+  end_minute: 360,
+}
+
 /**
  * 预览态的文档存储：pomo_doc_get / pomo_doc_set 在没有宿主时本来一律返回 null，
  * 专注模块读不到任何东西（任务表永远是空的）。这里让它落到 localStorage，
@@ -327,6 +354,14 @@ async function mockInvoke<T>(cmd: string, payload: Record<string, unknown>): Pro
   switch (cmd) {
     case 'get_app_conf':
       return mockConf as T
+    // 浏览器预览没有原生遮罩：开关只留在内存里，界面状态照样能点
+    case 'eyecare_state':
+      return mockEyeCare as T
+    case 'eyecare_set': {
+      const patch = (payload.data ?? {}) as Partial<EyeCareState>
+      Object.assign(mockEyeCare, patch)
+      return { ...mockEyeCare } as T
+    }
     case 'search_command_by_code': {
       // 与后端同口径：空搜索返回 state=1 且 always_show=1 的命令（即搜索源）
       const code = String(payload.code ?? '').toLowerCase()

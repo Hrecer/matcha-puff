@@ -2,6 +2,7 @@
 
 mod conf;
 mod db;
+mod eyecare;
 mod focus;
 mod frame;
 mod ipc;
@@ -464,6 +465,9 @@ fn main() {
 
             // 计时内核在 Rust 线程里走：窗口隐藏/最小化也不会被 WebView2 节流。
             focus::spawn_ticker(app.handle().clone());
+
+            // 护眼遮罩：按上次的开关状态直接恢复，渲染线程自己管遮罩窗口。
+            eyecare::init();
 
             // 【界面切换】主窗口指向 React 版产物（../frontend/next/）。
             // 根目录另有一套页面，工具窗口的 /tool/<url> 由它接住。

@@ -29,6 +29,8 @@ import { SectionTitle } from '@/components/ui/section-title'
 import { SlidingSegmented } from '@/components/ui/sliding'
 import { Tip } from '@/components/ui/tooltip'
 import { WidgetHideIcon, WidgetShowIcon } from '@/components/focus/FocusWidgetIcons'
+import { EyeCareOffIcon, EyeCareOnIcon } from '@/components/focus/EyeCareIcons'
+import { EyeCareStrengthBar } from '@/components/focus/EyeCareStrengthBar'
 import { TaskPicker, type PickedTask } from '@/components/focus/TaskPicker'
 import { HabitsTab } from '@/components/focus/HabitsTab'
 import { QuadrantTab } from '@/components/focus/QuadrantTab'
@@ -63,6 +65,7 @@ import {
   useWidgetVisible,
 } from '@/lib/widget-visibility'
 import { inTauri } from '@/ipc/bridge'
+import { initEyeCare, toggleEyeCare, useEyeCareEnabled } from '@/lib/eye-care'
 
 type FocusTab = 'timer' | 'tasks' | 'quadrant' | 'calendar' | 'inbox' | 'habits' | 'stats'
 
@@ -97,6 +100,7 @@ export function FocusPage() {
   const [tab, setTab] = useState<FocusTab>(readStoredTab)
   const widgetSupported = inTauri()
   const widgetVisible = useWidgetVisible()
+  const eyeCareEnabled = useEyeCareEnabled()
 
   useEffect(() => {
     try {
@@ -119,6 +123,7 @@ export function FocusPage() {
   useEffect(() => {
     void initFocusStore()
     initWidgetVisibility()
+    initEyeCare()
     // 业务文档统一在进入页面时拉一次，任何页签都可直接用。
     void loadFocusData()
   }, [])
@@ -166,6 +171,28 @@ export function FocusPage() {
               )}
             </button>
           ) : null}
+          <button
+            type="button"
+            aria-label={eyeCareEnabled ? '关闭护眼' : '开启护眼'}
+            aria-pressed={eyeCareEnabled}
+            title={eyeCareEnabled ? '关闭护眼' : '开启护眼'}
+            onClick={() => {
+              void toggleEyeCare().catch(() => {})
+            }}
+            className={cn(
+              'flex size-7 shrink-0 items-center justify-center rounded-full border outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/40',
+              eyeCareEnabled
+                ? 'border-primary/40 bg-primary/12 text-primary hover:bg-primary/20'
+                : 'border-border/60 bg-background/55 text-muted-foreground hover:border-foreground/20 hover:bg-accent hover:text-foreground',
+            )}
+          >
+            {eyeCareEnabled ? (
+              <EyeCareOnIcon className="size-3.5" />
+            ) : (
+              <EyeCareOffIcon className="size-3.5" />
+            )}
+          </button>
+          <EyeCareStrengthBar className="ml-0.5" />
         </div>
         <SlidingSegmented
           options={TABS}
