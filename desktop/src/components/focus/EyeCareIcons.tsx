@@ -11,8 +11,10 @@ export function EyeCareOffIcon({ className }: { className?: string }) {
       className={className}
       aria-hidden="true"
     >
-      <path d="M2.2 12S5.8 5.6 12 5.6 21.8 12 21.8 12 18.2 18.4 12 18.4 2.2 12 2.2 12Z" />
-      <circle cx="12" cy="12" r="2.9" />
+      <g transform="translate(1.1 1.1)">
+        <path d="M2.2 12S5.8 5.6 12 5.6 21.8 12 21.8 12 18.2 18.4 12 18.4 2.2 12 2.2 12Z" />
+        <circle cx="12" cy="12" r="2.9" />
+      </g>
     </svg>
   )
 }
@@ -30,8 +32,10 @@ export function EyeCareOnIcon({ className }: { className?: string }) {
       className={className}
       aria-hidden="true"
     >
-      <path d="M2.2 12S5.8 5.6 12 5.6 21.8 12 21.8 12 18.2 18.4 12 18.4 2.2 12 2.2 12Z" />
-      <circle cx="12" cy="12" r="3.1" fill="currentColor" stroke="none" />
+      <g transform="translate(1.1 1.1)">
+        <path d="M2.2 12S5.8 5.6 12 5.6 21.8 12 21.8 12 18.2 18.4 12 18.4 2.2 12 2.2 12Z" />
+        <circle cx="12" cy="12" r="3.1" fill="currentColor" stroke="none" />
+      </g>
     </svg>
   )
 }
